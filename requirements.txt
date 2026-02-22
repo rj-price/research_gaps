@@ -2,3 +2,5 @@ google-genai
 pypdf
 python-dotenv
 tqdm
+aiolimiter
+tenacity

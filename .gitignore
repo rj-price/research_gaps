@@ -153,6 +153,7 @@ cython_debug/
 
 # VS Code
 .vscode/
+*.code-workspace
 
 # Project Specific
 sample_pdfs/

@@ -1,3 +1,4 @@
+from typing import List
 from pydantic import BaseModel, Field
 
 class PaperSummary(BaseModel):
@@ -15,3 +16,23 @@ class PaperSummary(BaseModel):
             f"4. **Key Findings**: {self.key_findings}\n"
             f"5. **Limitations & Future Work**: {self.limitations}\n"
         )
+
+# --- Multi-Agent Architecture Models ---
+
+class SynthesisResult(BaseModel):
+    narrative: str = Field(description="A cohesive narrative of what is currently known and established based on the papers.")
+    dominant_methodologies: str = Field(description="The dominant methodologies and common themes synthesized.")
+
+class CriticResult(BaseModel):
+    unexplored_territories: str = Field(description="Specific questions or variables consistently ignored or missing across papers.")
+    methodological_limitations: str = Field(description="Widespread flaws, limitations, or technologies that should be applied.")
+    contradictions: str = Field(description="Conflicting findings between the papers that need resolution.")
+
+class ResearchProposal(BaseModel):
+    title: str = Field(description="A professional, academic title.")
+    targeted_gap: str = Field(description="Which specific gap this proposal addresses.")
+    methodology: str = Field(description="A brief 2-3 sentence overview of how this study would be conducted.")
+    expected_impact: str = Field(description="Why solving this gap is important to the broader field.")
+
+class InnovatorResult(BaseModel):
+    proposals: List[ResearchProposal] = Field(description="3 novel, highly specific research studies.")

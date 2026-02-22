@@ -80,8 +80,15 @@ async def process_pdfs(args: argparse.Namespace) -> None:
 
     logger.info(f"Analysis complete! Report saved to {args.output}")
 
+from modules.db import init_db
+
+# ... (keep existing process_pdfs and imports above) ...
 def _silence_ssl_errors():
     logging.getLogger('asyncio').setLevel(logging.CRITICAL)
+
+async def _main_async(args):
+    await init_db()
+    await process_pdfs(args)
 
 def main():
     _silence_ssl_errors()
@@ -109,7 +116,7 @@ def main():
     
     # Run the async main loop
     try:
-        asyncio.run(process_pdfs(args))
+        asyncio.run(_main_async(args))
     except RuntimeError as e:
         if "Event loop is closed" not in str(e):
             raise

@@ -156,4 +156,6 @@ cython_debug/
 
 # Project Specific
 sample_pdfs/
- research_gap_report.md
+advanced_report*.md
+research_cache.db
+

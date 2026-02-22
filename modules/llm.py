@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import json
 from typing import List
 
 from google import genai
@@ -9,7 +10,9 @@ from aiolimiter import AsyncLimiter
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from modules.models import PaperSummary
-from modules.prompts import get_summary_prompt, get_gaps_prompt
+from modules.prompts import get_summary_prompt
+from modules.db import get_cached_summary, cache_summary, get_file_hash
+from modules.agents import run_multi_agent_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +23,6 @@ def get_client() -> genai.Client:
         raise ValueError("GOOGLE_API_KEY missing")
     return genai.Client(api_key=api_key)
 
-# We use tenacity to retry on common transient errors
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=4, max=10),
@@ -36,14 +38,22 @@ async def generate_with_retry(client: genai.Client, model_id: str, contents, con
 async def summarize_paper(
     client: genai.Client, model_id: str, pdf_path: str, limiter: AsyncLimiter
 ) -> str:
-    """Uploads and uses Gemini to summarize a single paper."""
+    """Uploads and uses Gemini to summarize a single paper (with SQLite caching)."""
     filename = os.path.basename(pdf_path)
     
-    # Wait for rate limit
+    # Check cache first
+    file_hash = await asyncio.to_thread(get_file_hash, pdf_path)
+    cached_json = await get_cached_summary(file_hash)
+    if cached_json:
+        logger.info(f"Loaded {filename} from SQLite cache.")
+        summary_data = PaperSummary.model_validate_json(cached_json)
+        return summary_data.to_markdown()
+
+    # Wait for rate limit before calling API
     async with limiter:
         uploaded_file = None
         try:
-            logger.info(f"Uploading {filename}...")
+            logger.info(f"Uploading {filename} to Gemini...")
             # Upload via File API
             uploaded_file = client.files.upload(file=pdf_path)
             
@@ -57,7 +67,6 @@ async def summarize_paper(
             prompt = get_summary_prompt(filename)
             logger.info(f"Generating summary for {filename}...")
             
-            # Using client.aio for async generation
             response = await generate_with_retry(
                 client, 
                 model_id, 
@@ -65,7 +74,9 @@ async def summarize_paper(
                 config=config
             )
             
-            # The response text is a JSON string matching the PaperSummary schema
+            # Save to Cache 
+            await cache_summary(file_hash, filename, response.text)
+            
             summary_data = PaperSummary.model_validate_json(response.text)
             logger.info(f"Successfully summarized {filename}.")
             return summary_data.to_markdown()
@@ -83,25 +94,11 @@ async def summarize_paper(
                     logger.error(f"Failed to delete file {uploaded_file.name}: {cleanup_e}")
 
 async def identify_gaps(client: genai.Client, model_id: str, summaries: List[str], subject: str, limiter: AsyncLimiter) -> str:
-    """Uses Gemini to synthesize summaries and find gaps."""
-    combined_summaries = "\n\n---\n\n".join(summaries)
-    prompt = get_gaps_prompt(subject, combined_summaries)
-    
-    config = types.GenerateContentConfig(
-        system_instruction="You are a senior principal investigator.",
-    )
-    
+    """Orchestrates the multi-agent synthesis."""
     async with limiter:
         try:
-            logger.info("Generating research gap report...")
-            response = await generate_with_retry(
-                client,
-                model_id,
-                contents=prompt,
-                config=config
-            )
-            logger.info("Successfully generated research gap report.")
-            return response.text
+            # We pass down generate_with_retry so the agents get the tenacity benefits
+            return await run_multi_agent_pipeline(client, model_id, summaries, subject, generate_with_retry)
         except Exception as e:
-            logger.error(f"Error analyzing gaps: {e}")
+            logger.error(f"Error in multi-agent pipeline: {e}")
             return f"Error analyzing gaps: {e}"

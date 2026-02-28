@@ -155,6 +155,9 @@ cython_debug/
 .vscode/
 *.code-workspace
 
+# Agent
+.agent/
+
 # Project Specific
 sample_pdfs/
 advanced_report*.md

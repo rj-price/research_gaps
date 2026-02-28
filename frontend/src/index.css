@@ -2,26 +2,23 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --color-academic-50: #f8fafc;
-  --color-academic-100: #f1f5f9;
-  --color-academic-200: #e2e8f0;
-  --color-academic-300: #cbd5e1;
-  --color-academic-400: #94a3b8;
-  --color-academic-500: #64748b;
-  --color-academic-600: #475569;
-  --color-academic-700: #334155;
-  --color-academic-800: #1e293b;
-  --color-academic-900: #0f172a;
+  --color-primary: #0891B2;
+  --color-secondary: #22D3EE;
+  --color-cta: #22C55E;
+  --color-background: #ECFEFF;
+  --color-text: #164E63;
+  --font-sans: "Atkinson Hyperlegible", Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-serif: "Crimson Pro", Georgia, serif;
 }
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: #0f172a;
-  background-color: #f8fafc;
+  color: var(--color-text);
+  background-color: var(--color-background);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;

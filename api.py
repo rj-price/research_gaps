@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from aiolimiter import AsyncLimiter
 
-from modules.llm import get_client, summarize_paper, identify_gaps
+from modules.llm import get_client, summarise_paper, identify_gaps
 from modules.db import init_db
 
 # Load environment variables
@@ -57,26 +57,26 @@ async def run_analysis(task_id: str, subject: str, model: str, rate_limit: int, 
         limiter = AsyncLimiter(rate_limit, 60)
         semaphore = asyncio.Semaphore(concurrent_requests)
 
-        async def bounded_summarize(pdf_path: str) -> str:
+        async def bounded_summarise(pdf_path: str) -> str:
             async with semaphore:
-                return await summarize_paper(client, model, pdf_path, limiter)
+                return await summarise_paper(client, model, pdf_path, limiter)
 
         # Process all PDFs
-        process_tasks = [bounded_summarize(pdf) for pdf in file_paths]
+        process_tasks = [bounded_summarise(pdf) for pdf in file_paths]
         
         paper_summaries = []
         for f in asyncio.as_completed(process_tasks):
             summary = await f
             paper_summaries.append(summary)
 
-        valid_summaries = [s for s in paper_summaries if not s.startswith("Error summarizing")]
+        valid_summaries = [s for s in paper_summaries if not s.startswith("Error summarising")]
 
         if not valid_summaries:
             tasks[task_id]["status"] = "failed"
             tasks[task_id]["error"] = "No valid summaries generated."
             return
 
-        logger.info(f"Task {task_id}: Analyzing research gaps...")
+        logger.info(f"Task {task_id}: Analysing research gaps...")
         report = await identify_gaps(client, model, valid_summaries, subject, limiter)
 
         tasks[task_id]["status"] = "completed"
@@ -94,8 +94,8 @@ async def run_analysis(task_id: str, subject: str, model: str, rate_limit: int, 
             if os.path.exists(path):
                 os.remove(path)
 
-@app.post("/analyze")
-async def analyze(
+@app.post("/analyse")
+async def analyse(
     background_tasks: BackgroundTasks,
     subject: str = "the provided topics",
     model: str = "gemini-2.5-flash",

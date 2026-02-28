@@ -35,10 +35,10 @@ async def generate_with_retry(client: genai.Client, model_id: str, contents, con
         config=config
     )
 
-async def summarize_paper(
+async def summarise_paper(
     client: genai.Client, model_id: str, pdf_path: str, limiter: AsyncLimiter
 ) -> str:
-    """Uploads and uses Gemini to summarize a single paper (with SQLite caching)."""
+    """Uploads and uses Gemini to summarise a single paper (with SQLite caching)."""
     filename = os.path.basename(pdf_path)
     
     # Check cache first
@@ -78,12 +78,12 @@ async def summarize_paper(
             await cache_summary(file_hash, filename, response.text)
             
             summary_data = PaperSummary.model_validate_json(response.text)
-            logger.info(f"Successfully summarized {filename}.")
+            logger.info(f"Successfully summarised {filename}.")
             return summary_data.to_markdown()
 
         except Exception as e:
-            logger.error(f"Error summarizing {filename}: {e}")
-            return f"Error summarizing {filename}: {e}\n"
+            logger.error(f"Error summarising {filename}: {e}")
+            return f"Error summarising {filename}: {e}\n"
         finally:
             # Cleanup File strictly in finally block
             if uploaded_file:
@@ -101,4 +101,4 @@ async def identify_gaps(client: genai.Client, model_id: str, summaries: List[str
             return await run_multi_agent_pipeline(client, model_id, summaries, subject, generate_with_retry)
         except Exception as e:
             logger.error(f"Error in multi-agent pipeline: {e}")
-            return f"Error analyzing gaps: {e}"
+            return f"Error analysing gaps: {e}"

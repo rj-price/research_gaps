@@ -8,14 +8,14 @@ from modules.models import SynthesisResult, CriticResult, InnovatorResult
 
 logger = logging.getLogger(__name__)
 
-async def run_synthesizer_agent(client: genai.Client, model_id: str, summaries: List[str], subject: str, generate_func) -> SynthesisResult:
+async def run_synthesiser_agent(client: genai.Client, model_id: str, summaries: List[str], subject: str, generate_func) -> SynthesisResult:
     """Agent 1: Reads all summaries and creates a cohesive state of the field."""
-    logger.info("Agent 1 (Synthesizer) is analyzing summaries...")
+    logger.info("Agent 1 (Synthesiser) is analysing summaries...")
     combined_summaries = "\n\n---\n\n".join(summaries)
     prompt = f"""
-    You are the Synthesizer Agent. You have been provided with summaries of recent academic papers on "{subject}".
+    You are the Synthesiser Agent. You have been provided with summaries of recent academic papers on "{subject}".
     
-    Your goal is to conduct a meta-analysis and synthesize the current state of the art.
+    Your goal is to conduct a meta-analysis and synthesise the current state of the art.
     Read the following summaries and extract a cohesive narrative of what is established, and the dominant methodologies.
     
     Summaries:
@@ -23,7 +23,7 @@ async def run_synthesizer_agent(client: genai.Client, model_id: str, summaries: 
     """
     
     config = types.GenerateContentConfig(
-        system_instruction="You are an expert academic Synthesizer.",
+        system_instruction="You are an expert academic Synthesiser.",
         response_mime_type="application/json",
         response_schema=SynthesisResult,
     )
@@ -37,7 +37,7 @@ async def run_critic_agent(client: genai.Client, model_id: str, summaries: List[
     combined_summaries = "\n\n---\n\n".join(summaries)
     
     prompt = f"""
-    You are the Critic Agent. You have been provided with raw paper summaries and a synthesized 'State of the Field'.
+    You are the Critic Agent. You have been provided with raw paper summaries and a synthesised 'State of the Field'.
     
     Your goal is to strictly identify systemic Research Gaps. Look for missing variables, methodological flaws, and contradictions.
     Do not be polite; be highly critical and analytical.
@@ -51,7 +51,7 @@ async def run_critic_agent(client: genai.Client, model_id: str, summaries: List[
     """
 
     config = types.GenerateContentConfig(
-        system_instruction="You are a ruthless academic Critic analyzing research gaps.",
+        system_instruction="You are a ruthless academic Critic analysing research gaps.",
         response_mime_type="application/json",
         response_schema=CriticResult,
     )
@@ -86,7 +86,7 @@ async def run_innovator_agent(client: genai.Client, model_id: str, critic_result
 async def run_multi_agent_pipeline(client: genai.Client, model_id: str, summaries: List[str], subject: str, generate_func) -> str:
     """Orchestrates the 3-step sequential agent pipeline and formats the final Markdown report."""
     
-    synthesis = await run_synthesizer_agent(client, model_id, summaries, subject, generate_func)
+    synthesis = await run_synthesiser_agent(client, model_id, summaries, subject, generate_func)
     critic = await run_critic_agent(client, model_id, summaries, synthesis, generate_func)
     innovator = await run_innovator_agent(client, model_id, critic, generate_func)
     

@@ -77,7 +77,7 @@ function App() {
     formData.append('subject', subject || 'the provided topics');
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/analyze`, formData, {
+      const response = await axios.post(`${API_BASE_URL}/analyse`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setTaskId(response.data.task_id);
@@ -122,7 +122,7 @@ function App() {
             Research Gap Identifier
           </h1>
           <p className="text-lg md:text-2xl text-text/80 max-w-2xl font-sans leading-relaxed">
-            A professional academic tool to synthesize literature and identify novel research opportunities.
+            A professional academic tool to synthesise literature and identify novel research opportunities.
           </p>
         </div>
       </header>
@@ -190,7 +190,7 @@ function App() {
                 {loading ? (
                   <>
                     <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                    Synthesizing Literature...
+                    Synthesising Literature...
                   </>
                 ) : (
                   "Identify Research Gaps"
@@ -206,7 +206,7 @@ function App() {
             <Loader2 className="w-12 h-12 mx-auto mb-6 text-primary animate-spin" />
             <h3 className="text-2xl font-serif font-bold text-text mb-3">Analysis in Progress</h3>
             <p className="text-text/70 text-lg">
-              The multi-agent pipeline is currently synthesizing your documents. This typically takes 30-60 seconds.
+              The multi-agent pipeline is currently synthesising your documents. This typically takes 30-60 seconds.
             </p>
           </div>
         )}
@@ -267,9 +267,9 @@ function App() {
         <div className="max-w-3xl mx-auto px-4">
           <p className="text-text/60 font-semibold text-lg mb-6">© 2026 Academic Research Intelligence Unit</p>
           <div className="flex flex-wrap justify-center gap-6">
-            <a href="#" className="text-text/50 hover:text-primary transition-colors font-medium">Privacy Policy</a>
-            <a href="#" className="text-text/50 hover:text-primary transition-colors font-medium">Terms of Service</a>
-            <a href="#" className="text-text/50 hover:text-primary transition-colors font-medium">API Documentation</a>
+            <a href="#" className="text-text/50 hover:text-primary transition-colours font-medium">Privacy Policy</a>
+            <a href="#" className="text-text/50 hover:text-primary transition-colours font-medium">Terms of Service</a>
+            <a href="#" className="text-text/50 hover:text-primary transition-colours font-medium">API Documentation</a>
           </div>
         </div>
       </footer>

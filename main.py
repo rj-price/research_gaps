@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from tqdm.asyncio import tqdm
 from aiolimiter import AsyncLimiter
 
-from modules.llm import get_client, summarize_paper, identify_gaps
+from modules.llm import get_client, summarise_paper, identify_gaps
 
 # Setup logging
 logging.basicConfig(
@@ -44,31 +44,31 @@ async def process_pdfs(args: argparse.Namespace) -> None:
     # Semaphore to limit max concurrent active requests to not overwhelm local connections
     semaphore = asyncio.Semaphore(args.concurrent_requests)
 
-    async def bounded_summarize(pdf_path: str) -> str:
+    async def bounded_summarise(pdf_path: str) -> str:
         async with semaphore:
-            return await summarize_paper(client, args.model, pdf_path, limiter)
+            return await summarise_paper(client, args.model, pdf_path, limiter)
 
     # Process all PDFs concurrently but gated by both limiter and semaphore
     tasks = [
-        bounded_summarize(pdf)
+        bounded_summarise(pdf)
         for pdf in pdf_files
     ]
     
     paper_summaries = []
     
     # Use tqdm wrapper for asyncio to show progress bar
-    for f in tqdm.as_completed(tasks, total=len(tasks), desc="Summarizing Papers"):
+    for f in tqdm.as_completed(tasks, total=len(tasks), desc="Summarising Papers"):
         summary = await f
         paper_summaries.append(summary)
 
     # Filter out exact error messages if any (optional, but good for clean output)
-    valid_summaries = [s for s in paper_summaries if not s.startswith("Error summarizing")]
+    valid_summaries = [s for s in paper_summaries if not s.startswith("Error summarising")]
 
     if not valid_summaries:
         logger.error("No valid summaries generated.")
         return
 
-    logger.info("Analyzing research gaps...")
+    logger.info("Analysing research gaps...")
     report = await identify_gaps(client, args.model, valid_summaries, args.subject, limiter)
 
     with open(args.output, "w") as f:

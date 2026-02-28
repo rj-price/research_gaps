@@ -14,17 +14,17 @@
 
 ## Global Rules
 
-### Color Palette
+### Colour Palette
 
 | Role | Hex | CSS Variable |
 |------|-----|--------------|
-| Primary | `#0891B2` | `--color-primary` |
-| Secondary | `#22D3EE` | `--color-secondary` |
-| CTA/Accent | `#22C55E` | `--color-cta` |
-| Background | `#ECFEFF` | `--color-background` |
-| Text | `#164E63` | `--color-text` |
+| Primary | `#0891B2` | `--colour-primary` |
+| Secondary | `#22D3EE` | `--colour-secondary` |
+| CTA/Accent | `#22C55E` | `--colour-cta` |
+| Background | `#ECFEFF` | `--colour-background` |
+| Text | `#164E63` | `--colour-text` |
 
-**Color Notes:** Fresh cyan + clean green
+**Colour Notes:** Fresh cyan + clean green
 
 ### Typography
 
@@ -69,7 +69,7 @@
 /* Primary Button */
 .btn-primary {
   background: #22C55E;
-  color: white;
+  colour: white;
   padding: 12px 24px;
   border-radius: 8px;
   font-weight: 600;
@@ -85,7 +85,7 @@
 /* Secondary Button */
 .btn-secondary {
   background: transparent;
-  color: #0891B2;
+  colour: #0891B2;
   border: 2px solid #0891B2;
   padding: 12px 24px;
   border-radius: 8px;
@@ -121,11 +121,11 @@
   border: 1px solid #E2E8F0;
   border-radius: 8px;
   font-size: 16px;
-  transition: border-color 200ms ease;
+  transition: border-colour 200ms ease;
 }
 
 .input:focus {
-  border-color: #0891B2;
+  border-colour: #0891B2;
   outline: none;
   box-shadow: 0 0 0 3px #0891B220;
 }
@@ -155,18 +155,18 @@
 
 **Style:** Vibrant & Block-based
 
-**Keywords:** Bold, energetic, playful, block layout, geometric shapes, high color contrast, duotone, modern, energetic
+**Keywords:** Bold, energetic, playful, block layout, geometric shapes, high colour contrast, duotone, modern, energetic
 
 **Best For:** Startups, creative agencies, gaming, social media, youth-focused, entertainment, consumer
 
-**Key Effects:** Large sections (48px+ gaps), animated patterns, bold hover (color shift), scroll-snap, large type (32px+), 200-300ms
+**Key Effects:** Large sections (48px+ gaps), animated patterns, bold hover (colour shift), scroll-snap, large type (32px+), 200-300ms
 
 ### Page Pattern
 
 **Pattern Name:** Minimal Single Column
 
 - **Conversion Strategy:** Single CTA focus. Large typography. Lots of whitespace. No nav clutter. Mobile-first.
-- **CTA Placement:** Center, large CTA button
+- **CTA Placement:** Centre, large CTA button
 - **Section Order:** 1. Hero headline, 2. Short description, 3. Benefit bullets (3 max), 4. CTA, 5. Footer
 
 ---

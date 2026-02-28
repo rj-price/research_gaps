@@ -14,7 +14,11 @@ A powerful, asynchronous Python tool that leverages the Google Gemini API to ana
 
 ## Architecture Overview
 
+The project offers both a Command Line Interface (CLI) and a Web App Interface.
+
 The codebase is modularised to separate concerns securely:
+-   `api.py`: The FastAPI backend serving the analysis pipeline for the web app.
+-   `frontend/`: The React+Vite frontend featuring a professional academic design and PDF drag-and-drop.
 -   `main.py`: The CLI entry point that handles argument parsing, database initialisation, and asynchronous orchestration.
 -   `modules/llm.py`: Handles all direct interactions with the Gemini SDK, including file uploads, content generation, and strict cleanup in `finally` blocks to prevent orphaned files on your Google account.
 -   `modules/db.py`: Wraps `aiosqlite` to handle the local database caching layer and asynchronous sha-256 file hashing.
@@ -45,9 +49,28 @@ The codebase is modularised to separate concerns securely:
     GOOGLE_API_KEY=your_api_key_here
     ```
 
+5.  **Install Frontend Dependencies (For Web App):**
+    ```bash
+    cd frontend
+    npm install
+    cd ..
+    ```
+
 ## Usage
 
-Run the script from the command line, pointing it to a folder containing your academic PDFs.
+### Web Interface
+
+The easiest way to use the application is through the Web UI. We provide a `start.sh` script to run both the FastAPI backend and the Vite frontend simultaneously:
+
+```bash
+bash start.sh
+```
+
+Then, open your browser to `http://localhost:5173`. You can drag and drop your PDFs into the academic-styled interface to generate a report.
+
+### Command Line Interface
+
+You can also run the script from the command line, pointing it to a folder containing your academic PDFs.
 
 ```bash
 python main.py path/to/pdf_folder --subject "Your Review Subject"

@@ -21,7 +21,7 @@ class PaperSummary(BaseModel):
 
 class SynthesisResult(BaseModel):
     narrative: str = Field(description="A cohesive narrative of what is currently known and established based on the papers.")
-    dominant_methodologies: str = Field(description="The dominant methodologies and common themes synthesized.")
+    dominant_methodologies: str = Field(description="The dominant methodologies and common themes synthesised.")
 
 class CriticResult(BaseModel):
     unexplored_territories: str = Field(description="Specific questions or variables consistently ignored or missing across papers.")

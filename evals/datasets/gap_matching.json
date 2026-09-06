@@ -1,0 +1,92 @@
+{
+  "name": "gap-matching-v1",
+  "note": "Synthetic fixtures. The gaps mimic Critic-agent output; the papers are written for this suite and do not refer to real publications.",
+  "gaps": [
+    {
+      "gap_id": "evalgap0000000a",
+      "subject": "Fusarium wilt of strawberry",
+      "category": "unexplored_territory",
+      "title": "Effector presence/absence variation is never tested against field virulence",
+      "description": "Presence/absence of candidate effectors in Fusarium oxysporum f. sp. fragariae has been catalogued only from genome assemblies, and virulence has been scored only on glasshouse seedlings. No study links the accessory effector complement of an isolate to disease severity measured in a field trial on commercial Fragaria x ananassa cultivars."
+    },
+    {
+      "gap_id": "evalgap0000000b",
+      "subject": "Rhynchosporium effector biology",
+      "category": "methodological_limitation",
+      "title": "Rhynchosporium effector diversity described only from glasshouse-passaged isolates",
+      "description": "Published surveys of Rhynchosporium commune effector alleles use culture collections maintained by repeated glasshouse passage, which is known to select against virulence factors. The diversity present in contemporary field populations sampled directly from infected barley crops is unmeasured."
+    },
+    {
+      "gap_id": "evalgap0000000c",
+      "subject": "Fusarium wilt of strawberry",
+      "category": "contradiction",
+      "title": "Conflicting accounts of whether accessory chromosomes determine host range",
+      "description": "Some studies report that transfer or loss of a single accessory chromosome switches host specificity in Fusarium oxysporum, while others find host range is unchanged after accessory chromosome loss and attribute specificity to core genome variation. The conflict has not been resolved with a common experimental design."
+    },
+    {
+      "gap_id": "evalgap0000000d",
+      "subject": "Raspberry root rot resistance",
+      "category": "unexplored_territory",
+      "title": "Root rot resistance QTL have not been validated across genetic backgrounds",
+      "description": "Phytophthora root rot resistance QTL in Rubus idaeus have each been reported from a single biparental population. None has been tested for effect in an independent population or genetic background, so their value for marker-assisted selection is unknown."
+    }
+  ],
+  "cases": [
+    {
+      "paper_id": "eval:gm-01",
+      "title": "Field virulence of Fusarium oxysporum f. sp. fragariae isolates tracks accessory effector content across three commercial cultivars",
+      "abstract": "Twenty-four sequenced isolates were inoculated into replicated field plots of three commercial Fragaria x ananassa cultivars over two seasons. Disease severity index correlated with the number of intact SIX genes carried by the isolate (r = 0.71), and isolates lacking SIX6 caused negligible wilt in the field despite being virulent on glasshouse seedlings.",
+      "published": "2026-04-11",
+      "expected": [
+        {"gap_id": "evalgap0000000a", "relationships": ["fills", "partially_addresses"]}
+      ],
+      "allowed": ["evalgap0000000c"]
+    },
+    {
+      "paper_id": "eval:gm-02",
+      "title": "Direct sequencing of Rhynchosporium commune from infected barley leaves reveals effector alleles absent from culture collections",
+      "abstract": "We applied target-capture sequencing to 340 field-collected barley leaf lesions without culturing the pathogen. Twelve effector alleles were recovered that are absent from the reference culture collection, including two at high frequency in Scottish crops. Repeated glasshouse passage of a subset of isolates reduced allelic diversity within four generations.",
+      "published": "2026-03-02",
+      "expected": [
+        {"gap_id": "evalgap0000000b", "relationships": ["fills", "partially_addresses"]}
+      ],
+      "allowed": []
+    },
+    {
+      "paper_id": "eval:gm-03",
+      "title": "Host range is retained after accessory chromosome loss in Fusarium oxysporum",
+      "abstract": "Serial subculture generated chromosome-loss derivatives of four Fusarium oxysporum isolates. Derivatives lacking the accessory chromosome previously proposed to confer host specificity remained fully pathogenic on their original hosts, while core genome introgression lines switched host range. We conclude that accessory chromosome content alone does not determine host specificity.",
+      "published": "2026-02-18",
+      "expected": [
+        {"gap_id": "evalgap0000000c", "relationships": ["contradicts", "partially_addresses", "fills"]}
+      ],
+      "allowed": ["evalgap0000000a"]
+    },
+    {
+      "paper_id": "eval:gm-04",
+      "title": "A raspberry root rot resistance QTL on linkage group 3 confirmed in two independent populations",
+      "abstract": "The LG3 root rot resistance QTL first reported in a single biparental cross was tested in two unrelated Rubus idaeus populations phenotyped in separate locations. The QTL was significant in both, explaining 18 and 24 percent of variance respectively, and flanking markers predicted resistance class in a panel of 40 breeding selections.",
+      "published": "2026-05-06",
+      "expected": [
+        {"gap_id": "evalgap0000000d", "relationships": ["fills", "partially_addresses"]}
+      ],
+      "allowed": []
+    },
+    {
+      "paper_id": "eval:gm-05",
+      "title": "Modified atmosphere packaging extends shelf life of everbearing strawberry cultivars",
+      "abstract": "Four Fragaria x ananassa cultivars were stored under three packaging regimes and assessed for firmness, soluble solids and sensory quality over 14 days. Packaging with elevated carbon dioxide best preserved sensory scores and reduced grey mould incidence during storage.",
+      "published": "2026-01-22",
+      "expected": [],
+      "allowed": []
+    },
+    {
+      "paper_id": "eval:gm-06",
+      "title": "Calibration of a wireless soil moisture sensor network in commercial soft fruit tunnels",
+      "abstract": "We deployed 120 capacitance soil moisture sensors across six polytunnels and calibrated them against gravimetric sampling. A single site-specific calibration curve reduced mean absolute error to 2.1 percent volumetric water content, supporting automated irrigation scheduling.",
+      "published": "2026-06-14",
+      "expected": [],
+      "allowed": []
+    }
+  ]
+}

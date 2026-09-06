@@ -86,7 +86,10 @@ class OpenRouterClient:
 
         content = message.get("content")
         if not content:
-            raise TransientLLMError("OpenRouter returned an empty message.")
+            # A provider-side content filter reports itself here rather than as a refusal,
+            # and it fires intermittently on the same prompt, so this is worth retrying.
+            finish = choices[0].get("native_finish_reason") or choices[0].get("finish_reason") or "unknown"
+            raise TransientLLMError(f"OpenRouter returned an empty message (finish_reason: {finish}).")
         return content
 
     async def aclose(self) -> None:

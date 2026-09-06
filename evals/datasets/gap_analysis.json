@@ -1,0 +1,46 @@
+{
+  "name": "gap-analysis-v1",
+  "note": "Synthetic fixtures. Each case is a set of paper summaries in the format the Synthesiser and Critic agents receive, written so that specific gaps are demonstrably present in the input. Expected themes are what a competent critic should notice; distractor claims are things no honest critic could conclude from these summaries.",
+  "cases": [
+    {
+      "case_id": "fola-glasshouse",
+      "subject": "Virulence determinants of Fusarium oxysporum f. sp. fragariae",
+      "summaries": [
+        "1. **Title/Topic**: SIX gene complement of Fusarium oxysporum f. sp. fragariae isolate Fola-14\n2. **Core Research Question**: Which secreted in xylem (SIX) genes are present in the strawberry wilt pathogen?\n3. **Methodology**: Illumina short-read sequencing of the reference isolate Fola-14, assembly with SPAdes, homology search against known SIX genes.\n4. **Key Findings**: Seven SIX homologues were identified, three of which are absent from other formae speciales. Assembly of the SIX-containing region was fragmented across 41 contigs.\n5. **Limitations & Future Work**: Only the reference isolate Fola-14 was sequenced. The authors note that short reads could not resolve the repeat-rich accessory regions, and that pathogenicity was not tested.\n",
+        "2. **Title/Topic**: Functional characterisation of SIX6 in Fusarium oxysporum f. sp. fragariae\n2. **Core Research Question**: Is SIX6 required for wilt symptoms on strawberry?\n3. **Methodology**: Targeted deletion of SIX6 in isolate Fola-14, followed by root-dip inoculation of glasshouse-grown Fragaria x ananassa cv. Elsanta seedlings at 22 degrees Celsius.\n4. **Key Findings**: Deletion mutants caused no wilt symptoms and were not recovered from crown tissue, indicating SIX6 is required for virulence.\n5. **Limitations & Future Work**: A single isolate background and a single cultivar were used. Assays were confined to the glasshouse; the authors call for field validation.\n",
+        "3. **Title/Topic**: Reassessment of SIX6 deletion mutants in strawberry wilt\n2. **Core Research Question**: Do SIX6 deletion mutants retain virulence under different inoculation conditions?\n3. **Methodology**: Independent SIX6 deletion in isolate Fola-14, root-dip inoculation of glasshouse-grown cv. Elsanta seedlings at 28 degrees Celsius with a higher spore dose.\n4. **Key Findings**: Deletion mutants caused wilt symptoms indistinguishable from wild type, and were readily recovered from crown tissue, indicating SIX6 is dispensable for virulence.\n5. **Limitations & Future Work**: The authors acknowledge the disagreement with earlier reports and suggest inoculum dose or temperature may explain it. No field data were collected.\n",
+        "4. **Title/Topic**: Transcriptome of Fusarium oxysporum f. sp. fragariae during early colonisation\n2. **Core Research Question**: Which fungal genes are induced during the first 96 hours of strawberry root colonisation?\n3. **Methodology**: RNA sequencing of isolate Fola-14 on glasshouse-grown cv. Elsanta roots at 24, 48 and 96 hours post inoculation, mapped to the short-read reference assembly.\n4. **Key Findings**: 218 secreted protein genes were induced, including four SIX homologues. Induction peaked at 48 hours.\n5. **Limitations & Future Work**: Only one isolate and one cultivar were profiled, and mapping to the fragmented reference left 12 percent of reads unassigned. No later timepoints or field-grown plants were included.\n"
+      ],
+      "expected_themes": [
+        "Every study uses the single isolate Fola-14, so nothing is known about how these findings generalise across the pathogen population.",
+        "All virulence testing is confined to glasshouse assays on one cultivar; there is no field validation on commercial cultivars.",
+        "The two SIX6 deletion studies directly contradict each other on whether SIX6 is required for virulence, with inoculation temperature and dose as uncontrolled variables.",
+        "The short-read reference assembly is fragmented across the repeat-rich accessory regions, which limits every analysis built on it."
+      ],
+      "distractor_claims": [
+        "Field trials across multiple sites showed no effect of SIX6.",
+        "The studies compared several formae speciales experimentally.",
+        "Long-read assemblies resolved the accessory chromosomes."
+      ]
+    },
+    {
+      "case_id": "rhynchosporium-effectors",
+      "subject": "Effector biology of Rhynchosporium commune on barley",
+      "summaries": [
+        "1. **Title/Topic**: NIP effector family in Rhynchosporium commune\n2. **Core Research Question**: How many necrosis-inducing protein genes does the barley scald pathogen carry?\n3. **Methodology**: Homology search and manual curation of the R. commune reference genome, derived from culture collection isolate UK7 maintained by glasshouse passage since 1998.\n4. **Key Findings**: Six NIP-family genes were annotated, four of which induce cell death when infiltrated into barley leaves.\n5. **Limitations & Future Work**: Only the reference isolate was examined, and the authors note that culture collection isolates may have lost effector alleles during passage.\n",
+        "2. **Title/Topic**: NIP1 allele frequency in a European Rhynchosporium commune collection\n2. **Core Research Question**: How variable is NIP1 across European isolates?\n3. **Methodology**: Sanger sequencing of NIP1 from 96 culture collection isolates sampled in Europe between 1985 and 2004.\n4. **Key Findings**: Five NIP1 alleles were recovered, with the virulent allele at 38 percent frequency. Allele frequency differed between countries.\n5. **Limitations & Future Work**: No isolates collected after 2004 were included, and the authors note that all isolates had been cultured before sequencing.\n",
+        "3. **Title/Topic**: Contribution of NIP1 to lesion development in barley\n2. **Core Research Question**: Is NIP1 required for scald symptom development?\n3. **Methodology**: Deletion of NIP1 in culture collection isolate UK7 and detached leaf assays on barley cv. Golden Promise under controlled conditions.\n4. **Key Findings**: Deletion mutants produced lesions of the same size as wild type on Golden Promise, suggesting NIP1 is not required for symptom development on this cultivar.\n5. **Limitations & Future Work**: Only a single susceptible cultivar was tested, and detached leaf assays may not reflect whole-plant infection. Field trials were not conducted.\n"
+      ],
+      "expected_themes": [
+        "All three studies rest on culture collection isolates maintained by passage, which the authors themselves flag as a source of lost effector diversity; contemporary field populations are unsampled.",
+        "No isolates collected after 2004 are represented, so recent shifts in effector allele frequency following resistance deployment are unmeasured.",
+        "Effector function is assessed only on a narrow set of barley cultivars under controlled or detached leaf conditions, with no whole-plant or field validation."
+      ],
+      "distractor_claims": [
+        "The papers used field-collected isolates sequenced directly from lesions.",
+        "NIP1 function was tested across a diverse cultivar panel.",
+        "Effector allele frequencies were tracked into the 2020s."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+name: evals
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: OpenRouter model ID to score
+        required: false
+        default: google/gemini-2.5-flash
+  schedule:
+    # Weekly, so model drift on a pinned model ID is caught without waiting for a push
+    - cron: "0 6 * * 1"
+
+jobs:
+  harness:
+    name: Harness tests (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: pytest evals -q
+
+  suites:
+    name: Eval suites (billed)
+    runs-on: ubuntu-latest
+    # Forks have no access to the API key, and a push from one must not fail the run
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: harness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Score the suites against the thresholds
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENROUTER_APP_NAME: research_gaps evals (CI)
+        run: |
+          set -o pipefail
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::warning::OPENROUTER_API_KEY is not set; skipping the billed suites."
+            exit 0
+          fi
+          python -m evals.runner \
+            --suite all \
+            --model "${{ github.event.inputs.model || 'google/gemini-2.5-flash' }}" \
+            --results-dir evals/results \
+            --check | tee eval-report.md
+      - name: Publish the scores to the job summary
+        if: always()
+        run: cat eval-report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: evals/results/*.json
+          if-no-files-found: ignore

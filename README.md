@@ -12,6 +12,7 @@ A powerful, asynchronous Python tool that uses the OpenRouter API to analyse col
     2.  **Critic Agent:** Deep-dives into the synthesis and raw summaries to rigorously extract unexplored territories, methodological flaws, and contradictions.
     3.  **Innovator Agent:** Uses the Critic's strict gaps to formulate 3 highly specific and novel research proposals.
 -   **Ambient Literature Watcher:** A scheduled agent that watches PubMed and bioRxiv for your study organisms, screens new papers for genuine relevance, and flags when one of your previously identified research gaps has been filled by a new publication.
+-   **Scored, Not Vibed:** Three eval suites score the LLM-dependent steps against fixed datasets — relevance screening and gap matching against hand-labelled ground truth, gap analysis quality against an LLM judge — with regression thresholds enforced in CI.
 -   **Async & Rate-Limited:** Uses `asyncio` for high-throughput concurrent processing, gated seamlessly by `aiolimiter` to respect API rate limits. Automatically retries transient network or API errors with exponential backoff using `tenacity`.
 
 ## Architecture Overview
@@ -34,6 +35,7 @@ The codebase is modularised to separate concerns securely:
 -   `modules/watch.py`: Orchestrates one watch cycle and records it in SQLite.
 -   `modules/digest.py`: Renders the Markdown digest and delivers it by email or ntfy push.
 -   `modules/config.py`: The watchlist schema and loader.
+-   `evals/`: The eval harness — datasets, scoring, the LLM judge, the runner and the regression thresholds. See [Evals](#evals).
 
 ## Installation
 
@@ -219,6 +221,116 @@ A weekly digest, every Monday at 07:00:
 
 The run is resumable and deduplicating, so a missed week is caught up by the next run
 rather than lost, and running it twice by accident costs nothing.
+
+## Evals
+
+Three suites score the parts of the pipeline where the model can quietly get worse.
+Each drives the real production code path — `screen_relevance`, `match_paper_to_gaps`,
+the Synthesiser and Critic agents — so a regression in the app shows up here rather than
+in a digest six weeks later.
+
+| Suite | What it scores | Ground truth | Headline metrics |
+| --- | --- | --- | --- |
+| `relevance` | The watcher's first filter | 14 hand-labelled papers, including keyword traps: *Fusarium* keratitis, a *Rubus* nutraceutical study, strawberry as a pesticide-residue matrix | precision, recall, F1, hard-negative rejection rate |
+| `gap_matching` | Linking a new paper to a stored gap | 4 gap fixtures, 6 papers with expected links and relationships, two of which must match nothing | link precision/recall/F1, relationship accuracy, silence on unrelated papers |
+| `gap_analysis` | The quality of the gaps the Critic produces | Summary sets with gaps deliberately planted in them, plus claims the summaries do not support | mean groundedness and specificity (judge, 1–5), theme recall, fabrication rate, structural issues |
+
+The first two have objective answers, so they are scored arithmetically. Gap quality has
+no such answer, so a **stronger judge model** (`openai/gpt-5.6-terra` by default,
+override with `EVAL_JUDGE_MODEL`) grades each gap for whether it is grounded in the
+summaries the Critic was actually given and specific enough that a future paper could be
+judged to fill it. The judge never sees the answer key while grading individual gaps. A
+model grading its own output flatters itself, so keep the judge different from the model
+under test.
+
+Alongside the judged scores, the `gap_analysis` suite runs free deterministic checks:
+valid category, title within 15 words, non-empty description, at least one discrete gap.
+These matter because the watcher stores and matches against those fields.
+
+### Running them
+
+```bash
+pip install -r requirements-dev.txt
+
+# The harness itself: no API key, no network, no cost
+pytest evals -q
+
+# The suites, against the default model
+python -m evals.runner --suite all
+
+# One suite, a different model, and fail on a regression
+python -m evals.runner --suite relevance --model anthropic/claude-sonnet-5 --check
+
+# Cheap smoke test while iterating on a prompt
+python -m evals.runner --suite gap_analysis --limit 1
+```
+
+Every run writes a JSON record to `evals/results/` — the metrics, plus every case with
+the model's own reasoning — so two models, or the same model before and after a prompt
+change, can be compared after the fact. The runner prints only the cases it got wrong,
+which is the part worth reading.
+
+The same suites run as a pytest regression test, skipped by default so nobody pays for a
+run by accident:
+
+```bash
+RUN_LLM_EVALS=1 pytest evals/test_suites.py -v
+```
+
+### Baseline
+
+Measured on `google/gemini-2.5-flash`, judged by `openai/gpt-5.6-terra`, September 2026:
+
+| Suite | Result |
+| --- | --- |
+| `relevance` | precision 1.00, recall 1.00, F1 1.00, all five hard negatives rejected |
+| `gap_matching` | precision 1.00, recall 1.00, relationship accuracy 1.00, silent on both unrelated papers |
+| `gap_analysis` | grounded 4.77/5, specific 4.92/5, theme recall 1.00, no fabrications, no structural issues |
+
+Everything sits at the ceiling, which means the datasets currently prove the pipeline is
+not broken rather than discriminating between good and better. Feed real failures back in
+as they turn up — that is what sharpens them.
+
+The `gap_analysis` run above also earned its keep on the first attempt: it found that
+**every** gap the Critic produced carried an invalid `category`, because the model echoed
+the plural section headings (`unexplored_territories`) rather than the singular values the
+schema documented. `IdentifiedGap.category` is now a `Literal`, so the value reaches the
+model as a schema enum, with a validator that accepts the plural headings behind it.
+
+### Thresholds
+
+`evals/thresholds.json` is the contract, and `--check` exits non-zero when a bound is
+breached. The bounds sit just below the measured baseline: on the 14-case relevance set,
+one wrong call is tolerated and two are a failure. A breach means behaviour moved — a
+model update, a prompt edit, a schema change — not that a test is flaky. Read the
+reported metrics and the failing cases before relaxing a bound.
+
+`judge_errors` is the exception, and it means the judge itself never answered. Plant
+pathology prose about virulence, effectors and deletion mutants trips provider-side
+content filters on some routes: `anthropic/claude-sonnet-5` via the AWS route was refused
+on roughly 40 percent of identical calls, while `openai/gpt-5.6-terra` and
+`anthropic/claude-opus-5` were never refused. Filtered calls are retried, and a case the
+judge never scored is excluded from the means rather than counted as a zero, so a broken
+judge shows up as a `judge_errors` breach instead of a quietly terrible score. Check a new
+`EVAL_JUDGE_MODEL` on a handful of calls before trusting it with a run.
+
+### CI
+
+`.github/workflows/evals.yml` runs the offline harness tests on every push and pull
+request, then scores all three suites against the thresholds and publishes the scores to
+the job summary. The billed job needs an `OPENROUTER_API_KEY` repository secret; without
+it, it warns and skips rather than failing. It also runs weekly, so drift on a pinned
+model ID is caught without waiting for a push, and `workflow_dispatch` takes a model ID
+if you want to compare candidates.
+
+### Extending the datasets
+
+The datasets are plain JSON in `evals/datasets/`, validated on load by the Pydantic
+models in `evals/cases.py`. The most valuable additions are real failures: when the
+watcher keeps a paper it should have rejected, add it to `relevance.json` with the
+correct label. The fixtures shipped here are synthetic — written for the suite, not
+drawn from real publications — so they can be shared freely and the ground truth is
+unambiguous.
 
 ## Output
 

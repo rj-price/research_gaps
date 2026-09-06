@@ -165,3 +165,6 @@ research_cache.db
 watchlist.json
 digest*.md
 
+
+# Eval run records (the datasets and thresholds are tracked; individual runs are not)
+evals/results/*.json

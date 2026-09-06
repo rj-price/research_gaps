@@ -1,0 +1,3 @@
+# Test and eval harness dependencies (see the Evals section of README.md)
+pytest
+pytest-asyncio

@@ -1,0 +1,106 @@
+{
+  "name": "relevance-v1",
+  "note": "Synthetic fixtures. Titles, abstracts and IDs are written for this suite and do not refer to real publications.",
+  "organisms": ["Fusarium", "Rubus", "Fragaria", "Rhynchosporium"],
+  "interests": "Plant pathology, comparative genomics, effector biology, host resistance and crop breeding.",
+  "cases": [
+    {
+      "paper_id": "eval:rel-01",
+      "title": "Accessory chromosome loss reshapes the effector complement of Fusarium oxysporum f. sp. fragariae",
+      "abstract": "We assembled twelve isolates of Fusarium oxysporum f. sp. fragariae from strawberry crown rot outbreaks and compared their accessory chromosome content. Isolates lacking chromosome 14 lost eleven candidate effectors including two SIX genes, and showed reduced virulence on susceptible Fragaria x ananassa cultivars. Presence/absence variation across the accessory compartment tracked race designation more closely than core genome phylogeny.",
+      "relevant": true,
+      "tags": ["comparative-genomics", "effector-biology"]
+    },
+    {
+      "paper_id": "eval:rel-02",
+      "title": "A necrosis-inducing protein from Rhynchosporium commune triggers cultivar-specific cell death in barley",
+      "abstract": "Rhynchosporium commune secretes a family of small cysteine-rich proteins during early leaf colonisation. We show that NIP-like protein RcN4 induces cell death in barley lines carrying Rrs13 but not in near-isogenic susceptible lines. Deletion mutants were reduced in lesion expansion, and allelic diversity at the locus mirrored the deployment history of the resistance gene in European barley.",
+      "relevant": true,
+      "tags": ["effector-biology", "host-resistance"]
+    },
+    {
+      "paper_id": "eval:rel-03",
+      "title": "QTL mapping of Phytophthora root rot resistance in a Rubus idaeus biparental population",
+      "abstract": "A population of 214 red raspberry seedlings was phenotyped for root rot severity over three seasons and genotyped with a 12K SNP array. Two stable QTL on linkage groups 3 and 6 explained 31 percent of the phenotypic variance. Markers flanking the LG3 interval are being validated for marker-assisted selection in the breeding programme.",
+      "relevant": true,
+      "tags": ["breeding", "host-resistance"]
+    },
+    {
+      "paper_id": "eval:rel-04",
+      "title": "Pangenome analysis of 60 Fusarium graminearum isolates reveals a dispensable region enriched for secreted proteases",
+      "abstract": "Long-read assemblies of sixty Fusarium graminearum isolates from wheat were combined into a pangenome graph. The core genome comprised 11,200 genes, with a dispensable fraction enriched twofold for predicted secreted proteases and transposon-proximal genes. Selection statistics indicated diversifying selection across the dispensable fraction.",
+      "relevant": true,
+      "tags": ["comparative-genomics"]
+    },
+    {
+      "paper_id": "eval:rel-05",
+      "title": "Transcriptional response of Fragaria vesca to Botrytis cinerea infection at the fruit ripening transition",
+      "abstract": "Woodland strawberry fruit at four ripening stages were inoculated with Botrytis cinerea and sampled for RNA sequencing. Defence gene induction collapsed at the onset of ripening, coinciding with cell wall loosening. Candidate susceptibility factors are proposed as targets for resistance breeding.",
+      "relevant": true,
+      "tags": ["plant-pathology", "host-resistance"]
+    },
+    {
+      "paper_id": "eval:rel-06",
+      "title": "Effector repertoire diversity across a European Rhynchosporium secalis population sampled over three decades",
+      "abstract": "Archived isolates collected between 1990 and 2020 were sequenced to track effector allele frequencies. Three candidate avirulence genes showed stepwise frequency shifts following the commercial deployment of matching resistance sources, and one was lost from the population entirely.",
+      "relevant": true,
+      "tags": ["effector-biology", "population-genomics"]
+    },
+    {
+      "paper_id": "eval:rel-07",
+      "title": "Anthocyanin content and antioxidant capacity of Rubus fruticosus extracts in a rat model of hyperlipidaemia",
+      "abstract": "Blackberry extracts were administered to Wistar rats on a high-fat diet for eight weeks. Serum total cholesterol fell significantly relative to controls, and hepatic malondialdehyde was reduced. The results support the nutraceutical potential of Rubus fruit polyphenols.",
+      "relevant": false,
+      "tags": ["hard-negative", "nutraceutical"]
+    },
+    {
+      "paper_id": "eval:rel-08",
+      "title": "Fusarium keratitis following agricultural trauma: a ten-year retrospective case series",
+      "abstract": "We reviewed 88 cases of fungal keratitis presenting to a tertiary eye hospital. Fusarium species accounted for 61 percent of culture-positive cases. Delayed presentation and prior corticosteroid use predicted poorer visual outcomes. Natamycin remained the first-line treatment.",
+      "relevant": false,
+      "tags": ["hard-negative", "clinical"]
+    },
+    {
+      "paper_id": "eval:rel-09",
+      "title": "Crystal structure of a thermostable bacterial xylanase, with fungal homologues used as a phylogenetic outgroup",
+      "abstract": "We solved the 1.8 angstrom structure of a xylanase from a thermophilic bacterium. Phylogenetic placement used homologues from Aspergillus niger and Fusarium graminearum as an outgroup. Active site substitutions explain the enzyme's thermal tolerance, which is relevant to industrial biomass processing.",
+      "relevant": false,
+      "tags": ["hard-negative", "outgroup-mention"]
+    },
+    {
+      "paper_id": "eval:rel-10",
+      "title": "Validation of an LC-MS/MS method for 180 pesticide residues using strawberry as the food matrix",
+      "abstract": "A QuEChERS-based extraction was validated for 180 pesticides in Fragaria x ananassa fruit. Recoveries fell between 78 and 112 percent with relative standard deviations under 15 percent. The method meets SANTE guidelines for routine residue monitoring.",
+      "relevant": false,
+      "tags": ["hard-negative", "food-matrix"]
+    },
+    {
+      "paper_id": "eval:rel-11",
+      "title": "Consumer preference and shelf-life of everbearing strawberry cultivars under modified atmosphere packaging",
+      "abstract": "Four everbearing Fragaria x ananassa cultivars were stored under three modified atmosphere regimes. Firmness and soluble solids were measured over 14 days alongside a sensory panel. Packaging with 10 percent CO2 best preserved sensory scores.",
+      "relevant": false,
+      "tags": ["hard-negative", "postharvest"]
+    },
+    {
+      "paper_id": "eval:rel-12",
+      "title": "Deep learning segmentation of retinal vasculature in fundus photographs",
+      "abstract": "We trained a U-Net variant on 4,000 annotated fundus images to segment retinal vessels. The model reached a Dice coefficient of 0.83 on a held-out set and generalised to two external cohorts without fine-tuning.",
+      "relevant": false,
+      "tags": ["clear-negative", "off-topic"]
+    },
+    {
+      "paper_id": "eval:rel-13",
+      "title": "Soil microbiome shifts under long-term strawberry monoculture and their association with replant disease",
+      "abstract": "Amplicon sequencing of 96 field plots showed that fungal community composition diverged sharply after the fourth consecutive strawberry crop, with Fusarium and Pythium relative abundance rising in symptomatic plots. Rotation with a brassica cover crop partially reversed the shift and reduced replant disease severity.",
+      "relevant": true,
+      "tags": ["plant-pathology", "microbiome"]
+    },
+    {
+      "paper_id": "eval:rel-14",
+      "title": "Nanopore assembly and annotation of the Rubus occidentalis genome with improved contiguity",
+      "abstract": "We report a chromosome-scale assembly of black raspberry from nanopore reads with Hi-C scaffolding, spanning 291 Mb with a contig N50 of 14.2 Mb and BUSCO completeness of 98.1 percent. Annotation predicted 34,100 protein-coding genes, and the resistance gene complement was compared with Rubus idaeus and Fragaria vesca.",
+      "relevant": true,
+      "tags": ["comparative-genomics", "assembly"]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
-from typing import List
-from pydantic import BaseModel, Field
+from typing import List, Literal
+from pydantic import BaseModel, Field, field_validator
 
 class PaperSummary(BaseModel):
     title: str = Field(description="The title or topic of the paper (infer if not explicit).")
@@ -23,10 +23,35 @@ class SynthesisResult(BaseModel):
     narrative: str = Field(description="A cohesive narrative of what is currently known and established based on the papers.")
     dominant_methodologies: str = Field(description="The dominant methodologies and common themes synthesised.")
 
+# Constrained rather than free text: these values are stored, matched against and
+# displayed in the digest, so an enum in the JSON schema is what keeps them usable.
+GapCategory = Literal["unexplored_territory", "methodological_limitation", "contradiction"]
+
+_CATEGORY_ALIASES = {
+    "unexplored_territories": "unexplored_territory",
+    "methodological_limitations": "methodological_limitation",
+    "contradictions": "contradiction",
+    "contradictions_and_tensions": "contradiction",
+}
+
+
 class IdentifiedGap(BaseModel):
     title: str = Field(description="A short, self-contained title for this single research gap (max 15 words).")
-    category: str = Field(description="One of: unexplored_territory, methodological_limitation, contradiction.")
+    category: GapCategory = Field(description="One of: unexplored_territory, methodological_limitation, contradiction.")
     description: str = Field(description="A 2-3 sentence statement of the gap, specific enough that a new paper could be judged to fill it or not.")
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _accept_the_plural_headings(cls, value):
+        """Models echo the plural section headings they were shown; take them as the singular.
+
+        Belt and braces behind the schema enum: a provider that ignores the enum would
+        otherwise fail validation and burn the whole Critic step on a retry loop.
+        """
+        if isinstance(value, str):
+            normalised = value.strip().lower().replace(" ", "_").replace("-", "_")
+            return _CATEGORY_ALIASES.get(normalised, normalised)
+        return value
 
 class CriticResult(BaseModel):
     unexplored_territories: str = Field(description="Specific questions or variables consistently ignored or missing across papers.")

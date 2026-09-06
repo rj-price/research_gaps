@@ -91,16 +91,23 @@ def load_config(path: str = DEFAULT_PATH) -> WatchConfig:
 def route_to_subjects(matched_terms: List[str], subjects: List[SubjectGroup]) -> List[str]:
     """Names the subject groups a paper belongs to, by watch term.
 
-    Substring rather than equality: a paper matched on 'Puccinia striiformis' should route
-    into a group declaring the broader 'Puccinia'. A paper may land in more than one group,
-    and one landing in none is left in the backlog rather than forced into a bucket.
+    A subject term matches a paper term only when the subject's term is the broader of the
+    two: 'Puccinia' claims a paper matched on 'Puccinia striiformis', but a group declaring
+    'Fusarium oxysporum f. sp. fragariae' does not claim a paper matched only on the bare
+    'Fusarium oxysporum'. Matching the other way round as well was how a first run put
+    banana, maize and soybean papers into one bucket and produced gaps general enough to
+    fit any of them.
+
+    A paper may land in more than one group. One landing in none is left in the backlog
+    rather than forced into a bucket, and `watch.py synthesise --status` counts those, so
+    a watch term with no home is visible rather than silently dropped.
     """
     lowered = [term.lower() for term in matched_terms]
     hits = []
     for subject in subjects:
         for term in subject.terms:
             needle = term.lower()
-            if any(needle in matched or matched in needle for matched in lowered):
+            if any(needle in matched for matched in lowered):
                 hits.append(subject.name)
                 break
     return hits

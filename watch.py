@@ -6,6 +6,7 @@ digest. Designed to be run on a schedule (see the cron example in the README).
 """
 import argparse
 import asyncio
+import json
 import logging
 
 from dotenv import load_dotenv
@@ -15,6 +16,9 @@ from aiolimiter import AsyncLimiter
 from modules import db, rolling
 from modules.config import load_config
 from modules.llm import get_client
+from modules.models import WatchedPaper
+from modules.screening import screen_relevance
+from modules.sources import _matched_terms as matched_terms
 from modules.watch import run_watch
 
 logging.basicConfig(
@@ -77,7 +81,8 @@ async def cmd_synthesise(args) -> None:
         print("No unsynthesised relevant papers banked. Run the watcher first.")
         return
 
-    grouped = rolling.group_backlog(backlog, config.subjects)
+    consumed = await db.get_synthesised_subjects([p["paper_id"] for p in backlog])
+    grouped = rolling.group_backlog(backlog, config.subjects, consumed)
     unrouted = len(backlog) - len({p["paper_id"] for papers in grouped.values() for p in papers})
     for name, papers in sorted(grouped.items()):
         noun = "paper" if len(papers) == 1 else "papers"
@@ -96,6 +101,66 @@ async def cmd_synthesise(args) -> None:
     finally:
         await client.aclose()
     print(f"Rolling synthesis complete: {new_gaps} new gaps, {merged} merged into existing ones.")
+
+
+async def cmd_rescreen(args) -> None:
+    """Re-screens every stored paper against the current watchlist interests.
+
+    Use after editing `interests`: papers already screened keep their old verdict
+    otherwise, and a paper wrongly kept stays in the synthesis backlog for good.
+    """
+    config = load_config(args.config)
+    if args.model:
+        config.model = args.model
+
+    await db.init_db()
+    rows = await db.get_all_papers()
+    if not rows:
+        print("No stored papers to re-screen.")
+        return
+
+    papers = [
+        WatchedPaper(
+            paper_id=row["paper_id"], source=row["source"], title=row["title"],
+            abstract=row["abstract"] or "", authors=row["authors"] or "",
+            published=row["published"] or "", url=row["url"] or "",
+            matched_terms=json.loads(row["matched_terms"] or "[]"),
+        )
+        for row in rows
+    ]
+    # Watch terms first: routing reads matched_terms, which was frozen at fetch time.
+    refreshed = [
+        (paper.paper_id, matched_terms(f"{paper.title} {paper.abstract}", config.terms))
+        for paper in papers
+    ]
+    changed = [(pid, terms) for (pid, terms), paper in zip(refreshed, papers) if terms != paper.matched_terms]
+    if changed:
+        await db.update_matched_terms(changed)
+        print(f"Re-derived watch terms for {len(changed)} papers.")
+
+    print(f"Re-screening {len(papers)} papers against the current interests.")
+
+    client = get_client()
+    try:
+        verdicts = await screen_relevance(
+            client, config.model, papers, config.interests, config.organisms,
+            AsyncLimiter(config.rate_limit, 60),
+        )
+    finally:
+        await client.aclose()
+
+    await db.reset_screening()
+    kept = 0
+    for paper in papers:
+        verdict = verdicts.get(paper.paper_id)
+        if verdict is None:
+            await db.record_screening(paper.paper_id, False, 0.0, "No verdict returned by the screener.")
+            continue
+        relevant = verdict.relevant and verdict.score >= config.min_relevance_score
+        kept += relevant
+        await db.record_screening(paper.paper_id, relevant, verdict.score, verdict.reason)
+
+    print(f"{kept} of {len(papers)} papers are relevant under the current interests.")
 
 
 def main() -> None:
@@ -144,6 +209,13 @@ def main() -> None:
         "--status", action="store_true", help="Report the backlog per subject and exit without calling the LLM"
     )
     synth_parser.set_defaults(func=cmd_synthesise)
+
+    rescreen_parser = subparsers.add_parser(
+        "rescreen", help="Re-screen every stored paper against the current watchlist interests"
+    )
+    rescreen_parser.add_argument("--config", default="watchlist.json", help="Path to the watchlist JSON")
+    rescreen_parser.add_argument("--model", help="Override the OpenRouter model ID")
+    rescreen_parser.set_defaults(func=cmd_rescreen)
 
     reopen_parser = subparsers.add_parser("reopen", help="Mark an addressed gap as open again")
     reopen_parser.add_argument("gap_id")

@@ -224,6 +224,7 @@ growing between those sessions:
 
 ```bash
 python watch.py synthesise --status   # what is banked, per subject. Free: no LLM calls
+python watch.py rescreen              # re-apply edited interests and terms to stored papers
 python watch.py synthesise            # synthesise every subject over its trigger
 python watch.py synthesise --force    # ignore the trigger and synthesise anything banked
 python watch.py run --no-rolling      # screen and match only, as before
@@ -260,6 +261,11 @@ without bound. Every candidate is checked against the gaps already stored for th
 before it is written; a duplicate updates the existing gap's description and inherits the
 new paper as a source. The title is never rewritten, because it is the ID's input and
 changing it would orphan every match already recorded.
+
+**Re-applying the watchlist.** `interests` and the watch terms are applied at screening
+and fetch time, so editing them changes nothing about papers already stored — a paper
+wrongly kept stays in the backlog for good, and a newly added term never appears against
+older papers, which routing reads. `python watch.py rescreen` re-derives both.
 
 **Provenance.** `gap_sources` records which papers a gap came from, and those papers are
 excluded when that gap is offered to the matcher. Without it a paper eventually gets

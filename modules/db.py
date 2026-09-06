@@ -82,6 +82,14 @@ async def init_db():
                 PRIMARY KEY (gap_id, paper_id)
             )
         ''')
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS synthesis_log (
+                paper_id TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (paper_id, subject)
+            )
+        ''')
         await _add_missing_columns(db)
         await db.commit()
     logger.info("Database initialized.")
@@ -246,6 +254,47 @@ async def record_screening(paper_id: str, relevant: bool, score: float, reason: 
         await db.commit()
 
 
+async def update_matched_terms(updates: Iterable) -> int:
+    """Re-derives which watch terms a stored paper hits.
+
+    matched_terms is computed once, at fetch time, so a term added to the watchlist later
+    never appears against papers already stored — and since routing reads this field, such
+    a paper can never reach the subject group the new term was added for.
+    """
+    rows = [(json.dumps(terms), paper_id) for paper_id, terms in updates]
+    if not rows:
+        return 0
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany('UPDATE papers SET matched_terms = ? WHERE paper_id = ?', rows)
+        await db.commit()
+    return len(rows)
+
+
+async def reset_screening() -> int:
+    """Clears every screening verdict so the papers can be judged again.
+
+    Tightening `interests` only changes how future papers are screened; papers already in
+    the store keep the verdict they were given under the old wording, and stay in the
+    synthesis backlog on that basis. This puts them back in the queue.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            'UPDATE papers SET screened = 0, relevant = NULL, relevance_score = NULL, relevance_reason = NULL'
+        )
+        await db.commit()
+        return cursor.rowcount
+
+
+async def get_all_papers() -> List[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            'SELECT paper_id, source, title, abstract, authors, published, url, matched_terms '
+            'FROM papers ORDER BY published ASC'
+        ) as cursor:
+            return [dict(row) for row in await cursor.fetchall()]
+
+
 async def record_gap_match(paper_id: str, gap_id: str, relationship: str, confidence: float, evidence: str):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute('''
@@ -276,11 +325,13 @@ async def get_undigested(limit: int = 200) -> List[dict]:
     return papers
 
 
-async def get_synthesis_backlog(limit: int = 500) -> List[dict]:
+async def get_synthesis_backlog(limit: int = 2000) -> List[dict]:
     """Relevant papers not yet consumed by a rolling synthesis, oldest first.
 
     Oldest first so a subject that trickles in is synthesised in publication order rather
-    than being permanently pushed out of the window by newer arrivals.
+    than being permanently pushed out of the window by newer arrivals. The limit is
+    generous because a paper routing to no subject stays here indefinitely, waiting for a
+    subject group that might cover it later.
     """
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -294,7 +345,45 @@ async def get_synthesis_backlog(limit: int = 500) -> List[dict]:
             return [dict(row) for row in await cursor.fetchall()]
 
 
-async def mark_synthesised(paper_ids: Iterable[str]):
+async def mark_synthesised(paper_ids: Iterable[str], subject: str):
+    """Records that these papers have been synthesised *for this subject*.
+
+    Per subject, not globally: subject groups overlap by design (a group on the species
+    complex covers papers a forma specialis group also claims), and a global flag let
+    whichever subject ran first consume the paper out from under the other.
+    """
+    ids = list(paper_ids)
+    if not ids:
+        return
+    now = _now()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany(
+            'INSERT OR IGNORE INTO synthesis_log (paper_id, subject, created_at) VALUES (?, ?, ?)',
+            [(paper_id, subject, now) for paper_id in ids],
+        )
+        await db.commit()
+
+
+async def get_synthesised_subjects(paper_ids: Iterable[str] | None = None) -> dict:
+    """Maps paper_id to the set of subjects it has already been synthesised for."""
+    query = 'SELECT paper_id, subject FROM synthesis_log'
+    params: tuple = ()
+    ids = list(paper_ids) if paper_ids is not None else None
+    if ids is not None:
+        if not ids:
+            return {}
+        query += f" WHERE paper_id IN ({','.join('?' * len(ids))})"
+        params = tuple(ids)
+    consumed: dict = {}
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(query, params) as cursor:
+            for paper_id, subject in await cursor.fetchall():
+                consumed.setdefault(paper_id, set()).add(subject)
+    return consumed
+
+
+async def mark_fully_synthesised(paper_ids: Iterable[str]):
+    """Flags papers consumed by every subject they route to, keeping the backlog query cheap."""
     ids = list(paper_ids)
     if not ids:
         return

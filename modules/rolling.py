@@ -60,18 +60,37 @@ def _paper_block(paper: dict) -> str:
     )
 
 
-def group_backlog(backlog: List[dict], subjects: List[SubjectGroup]) -> Dict[str, List[dict]]:
-    """Buckets unsynthesised papers by subject group, using the terms each paper matched."""
+def group_backlog(
+    backlog: List[dict], subjects: List[SubjectGroup], consumed: Dict[str, set] | None = None,
+) -> Dict[str, List[dict]]:
+    """Buckets unsynthesised papers by subject group, using the terms each paper matched.
+
+    `consumed` maps paper_id to the subjects it has already been synthesised for, so an
+    overlapping group still sees a paper another group has already used.
+    """
+    consumed = consumed or {}
     grouped: Dict[str, List[dict]] = {subject.name: [] for subject in subjects}
     for paper in backlog:
-        raw = paper.get("matched_terms") or "[]"
-        try:
-            terms = json.loads(raw) if isinstance(raw, str) else list(raw)
-        except (ValueError, TypeError):
-            terms = []
-        for name in route_to_subjects(terms, subjects):
-            grouped[name].append(paper)
+        for name in route_to_subjects(_terms_of(paper), subjects):
+            if name not in consumed.get(paper["paper_id"], ()):
+                grouped[name].append(paper)
     return grouped
+
+
+def routes_for(backlog: List[dict], subjects: List[SubjectGroup]) -> Dict[str, List[str]]:
+    """Maps paper_id to every subject it routes to, ignoring what has been consumed."""
+    return {
+        paper["paper_id"]: route_to_subjects(_terms_of(paper), subjects)
+        for paper in backlog
+    }
+
+
+def _terms_of(paper: dict) -> List[str]:
+    raw = paper.get("matched_terms") or "[]"
+    try:
+        return json.loads(raw) if isinstance(raw, str) else list(raw)
+    except (ValueError, TypeError):
+        return []
 
 
 async def merge_candidates(
@@ -153,7 +172,7 @@ async def synthesise_subject(
 
     if not critic.gaps:
         logger.info(f"Critic returned no discrete gaps for '{subject}'.")
-        await db.mark_synthesised(paper_ids)
+        await db.mark_synthesised(paper_ids, subject)
         return 0, 0
 
     stored = [gap for gap in await db.get_gaps(status="open") if gap["subject"] == subject]
@@ -173,7 +192,7 @@ async def synthesise_subject(
         )
         logger.info(f"Merged candidate gap into {decision.duplicate_of}: {decision.reason}")
 
-    await db.mark_synthesised(paper_ids)
+    await db.mark_synthesised(paper_ids, subject)
     logger.info(f"'{subject}': {len(fresh)} new gaps, {len(duplicates)} merged into existing ones.")
     return len(fresh), len(duplicates)
 
@@ -190,7 +209,8 @@ async def run_rolling_synthesis(
     if not backlog:
         return 0, 0
 
-    grouped = group_backlog(backlog, config.subjects)
+    consumed = await db.get_synthesised_subjects([p["paper_id"] for p in backlog])
+    grouped = group_backlog(backlog, config.subjects, consumed)
     total_new = total_merged = 0
 
     for name, papers in grouped.items():
@@ -214,4 +234,20 @@ async def run_rolling_synthesis(
         total_new += new
         total_merged += merged
 
+    await _retire_consumed_papers(backlog, config.subjects)
     return total_new, total_merged
+
+
+async def _retire_consumed_papers(backlog: List[dict], subjects: List[SubjectGroup]) -> None:
+    """Flags papers every routed subject has now used, so the backlog query stays small.
+
+    A paper routing to no subject is deliberately left behind: a subject group covering it
+    may be declared later, and `synthesise --status` counts it in the meantime.
+    """
+    routes = routes_for(backlog, subjects)
+    consumed = await db.get_synthesised_subjects(list(routes))
+    done = [
+        paper_id for paper_id, names in routes.items()
+        if names and set(names) <= consumed.get(paper_id, set())
+    ]
+    await db.mark_fully_synthesised(done)

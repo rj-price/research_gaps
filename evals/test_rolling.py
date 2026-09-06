@@ -130,14 +130,18 @@ async def test_one_failing_subject_does_not_stop_the_others(temp_db, limiter, mo
     async def flaky(client, model_id, subject, papers, limiter):
         if subject == "rust genomics":
             raise RuntimeError("provider refused")
-        await db.mark_synthesised([p["paper_id"] for p in papers])
+        await db.mark_synthesised([p["paper_id"] for p in papers], subject)
         return 1, 0
 
     monkeypatch.setattr(rolling, "synthesise_subject", flaky)
     config = WatchConfig(subjects=SUBJECTS, rolling_min_papers=1)
 
     assert await rolling.run_rolling_synthesis(None, config, limiter) == (1, 0)
-    # The failed subject's papers stay banked, so the next run retries them.
+    # The failed subject's paper is unconsumed, so the next run retries it; the successful
+    # subject's paper is retired because every subject it routes to has now used it.
+    consumed = await db.get_synthesised_subjects()
+    assert "pubmed:1" not in consumed
+    assert consumed["pubmed:2"] == {"soft fruit genomics"}
     assert [p["paper_id"] for p in await db.get_synthesis_backlog()] == ["pubmed:1"]
 
 
@@ -209,8 +213,8 @@ async def test_a_new_gap_is_stored_with_its_abstract_origin_and_sources(temp_db,
     assert len(gaps) == 1
     assert gaps[0]["origin"] == "abstract"
     assert await db.get_gap_sources() == {gaps[0]["gap_id"]: {"pubmed:1"}}
-    # Consumed, so a later run does not synthesise the same paper again.
-    assert await db.get_synthesis_backlog() == []
+    # Consumed for this subject, so a later run does not synthesise it again here.
+    assert await db.get_synthesised_subjects() == {"pubmed:1": {"rust genomics"}}
 
 
 async def test_a_restated_gap_updates_the_stored_one_instead_of_adding_a_row(temp_db, limiter, monkeypatch):
@@ -275,7 +279,7 @@ async def test_a_critic_returning_no_gaps_still_consumes_the_backlog(temp_db, li
     assert await rolling.synthesise_subject(
         None, "model", "rust genomics", [_paper("pubmed:1", ["Puccinia"])], limiter
     ) == (0, 0)
-    assert await db.get_synthesis_backlog() == []
+    assert await db.get_synthesised_subjects() == {"pubmed:1": {"rust genomics"}}
 
 
 async def test_the_merge_step_is_skipped_when_nothing_is_stored_yet(temp_db, limiter, monkeypatch):
@@ -423,3 +427,48 @@ async def test_run_watch_hides_a_gap_from_the_paper_that_created_it(temp_db, mon
 
     assert own_gap not in offered
     assert len(offered) == 1
+
+
+async def test_overlapping_subjects_each_get_the_paper(temp_db, limiter, monkeypatch):
+    """A species-complex group and a forma specialis group both cover the same paper.
+    Consumption is per subject, so whichever fires first must not steal it from the other."""
+    await db.init_db()
+    overlapping = [
+        SubjectGroup(name="species complex", terms=["Fusarium oxysporum"]),
+        SubjectGroup(name="strawberry wilt", terms=["Fusarium oxysporum f. sp. fragariae"]),
+    ]
+    paper = _paper("pubmed:1", ["Fusarium oxysporum f. sp. fragariae"])
+    assert route_to_subjects(["Fusarium oxysporum f. sp. fragariae"], overlapping) == [
+        "species complex", "strawberry wilt",
+    ]
+
+    await db.mark_synthesised(["pubmed:1"], "species complex")
+    consumed = await db.get_synthesised_subjects(["pubmed:1"])
+    grouped = rolling.group_backlog([paper], overlapping, consumed)
+
+    assert grouped["species complex"] == []
+    assert [p["paper_id"] for p in grouped["strawberry wilt"]] == ["pubmed:1"]
+
+
+async def test_a_paper_routing_nowhere_is_never_retired(temp_db, limiter, monkeypatch):
+    """It may be covered by a subject group declared later, so it stays visible."""
+    await db.init_db()
+    unrouted = _paper("pubmed:1", ["Zymoseptoria tritici"])
+    await rolling._retire_consumed_papers([unrouted], SUBJECTS)
+    assert await db.get_synthesised_subjects() == {}
+
+
+async def test_re_deriving_watch_terms_lets_an_old_paper_reach_a_new_subject(temp_db):
+    """matched_terms is frozen at fetch time, so a term added to the watchlist later would
+    otherwise never appear against papers already stored, and routing reads that field."""
+    await db.init_db()
+    await db.store_papers([WatchedPaper(
+        paper_id="pubmed:1", source="pubmed", title="Poplar rust assembly",
+        abstract="Melampsora larici-populina haplotypes.", matched_terms=[])])
+
+    rust = [SubjectGroup(name="rust genomics", terms=["Melampsora"])]
+    assert rolling.group_backlog([_paper("pubmed:1", [])], rust) == {"rust genomics": []}
+
+    await db.update_matched_terms([("pubmed:1", ["Melampsora"])])
+    refreshed = _paper("pubmed:1", ["Melampsora"])
+    assert [p["paper_id"] for p in rolling.group_backlog([refreshed], rust)["rust genomics"]] == ["pubmed:1"]

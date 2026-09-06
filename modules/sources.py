@@ -145,9 +145,17 @@ async def fetch_pubmed(
 
 # --- bioRxiv / medRxiv ---
 
+# The date-interval API returns 100 records a page and offers no keyword search, so a
+# week of bioRxiv has to be walked in full and filtered locally. At 100 records a page
+# this covers 40,000 preprints, comfortably more than any weekly window; the old 40-page
+# cap truncated a single week silently. The watcher is a scheduled background job, so
+# minutes of paging cost nothing that matters.
+DEFAULT_PREPRINT_MAX_PAGES = 400
+
+
 async def fetch_preprints(
     client: httpx.AsyncClient, terms: List[str], start: date, end: date,
-    server: str = "biorxiv", max_pages: int = 40,
+    server: str = "biorxiv", max_pages: int = DEFAULT_PREPRINT_MAX_PAGES,
 ) -> List[WatchedPaper]:
     """Walks the preprint server's date-interval API and keeps records mentioning a watch term.
 
@@ -155,6 +163,7 @@ async def fetch_preprints(
     """
     papers: List[WatchedPaper] = []
     cursor = 0
+    total = 0
     seen_dois = set()
 
     for _ in range(max_pages):
@@ -193,7 +202,10 @@ async def fetch_preprints(
             break
         await asyncio.sleep(0.2)
     else:
-        logger.warning(f"Stopped paging {server} at the {max_pages}-page cap; window may be incomplete.")
+        logger.warning(
+            f"Stopped paging {server} at the {max_pages}-page cap ({cursor} of {total} records); "
+            f"window is incomplete. Raise preprint_max_pages in the watchlist or shorten the window."
+        )
 
     logger.info(f"{server}: {len(papers)} preprints matched the watch terms.")
     return papers
@@ -202,6 +214,7 @@ async def fetch_preprints(
 async def fetch_all(
     terms: List[str], start: date, end: date,
     preprint_servers: List[str] | None = None, extra_query: str = "", retmax: int = 200,
+    preprint_max_pages: int = DEFAULT_PREPRINT_MAX_PAGES,
 ) -> List[WatchedPaper]:
     """Fetches from every configured source, tolerating a single source being down."""
     preprint_servers = preprint_servers if preprint_servers is not None else ["biorxiv"]
@@ -209,7 +222,10 @@ async def fetch_all(
 
     async with httpx.AsyncClient(timeout=60.0, headers=headers, follow_redirects=True) as client:
         jobs = [fetch_pubmed(client, terms, start, end, extra_query, retmax)]
-        jobs += [fetch_preprints(client, terms, start, end, server) for server in preprint_servers]
+        jobs += [
+            fetch_preprints(client, terms, start, end, server, preprint_max_pages)
+            for server in preprint_servers
+        ]
         results = await asyncio.gather(*jobs, return_exceptions=True)
 
     papers: List[WatchedPaper] = []

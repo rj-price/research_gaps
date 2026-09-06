@@ -16,6 +16,7 @@
   "preprint_servers": [
     "biorxiv"
   ],
+  "preprint_max_pages": 400,
   "min_relevance_score": 0.6,
   "min_match_confidence": 0.75,
   "subjects": [

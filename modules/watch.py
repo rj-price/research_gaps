@@ -45,6 +45,7 @@ async def collect_new_papers(config: WatchConfig, start: date, end: date) -> Tup
         preprint_servers=config.preprint_servers,
         extra_query=config.pubmed_query,
         retmax=config.max_results,
+        preprint_max_pages=config.preprint_max_pages,
     )
     logger.info(f"Fetched {len(fetched)} candidate papers from {start} to {end}.")
 
@@ -71,6 +72,7 @@ async def run_watch(
             terms=config.terms, start=start, end=end,
             preprint_servers=config.preprint_servers,
             extra_query=config.pubmed_query, retmax=config.max_results,
+            preprint_max_pages=config.preprint_max_pages,
         )
         lines = [f"# Dry run: {start} to {end}", "", f"{len(fetched)} candidates before screening.", ""]
         for paper in fetched:

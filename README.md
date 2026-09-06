@@ -184,6 +184,7 @@ cp watchlist.example.json watchlist.json
 | `interests` | Free text describing the group's focus. Drives the relevance screener. |
 | `pubmed_query` | Optional extra PubMed qualifier, ANDed with the term clause. |
 | `preprint_servers` | `biorxiv`, `medrxiv`, or both. Set to `[]` to skip preprints. |
+| `preprint_max_pages` | Pages of the preprint API to walk per server, 100 records each (default 400). The API has no keyword search, so the whole window is paged and filtered locally. |
 | `min_relevance_score` | Relevance verdicts below this score are dropped. Raise it if the digest is noisy. |
 | `min_match_confidence` | Gap matches below this confidence are discarded rather than stored. |
 | `subjects` | Subject groups for rolling gap synthesis, each with the watch terms that route papers into it. Leave empty to disable. |

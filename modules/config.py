@@ -7,6 +7,7 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from modules.llm import DEFAULT_MODEL
+from modules.sources import DEFAULT_PREPRINT_MAX_PAGES
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,10 @@ class WatchConfig(BaseModel):
         description="Optional extra PubMed qualifier ANDed with the term clause, e.g. 'genomics OR pathogenicity'.",
     )
     preprint_servers: List[str] = Field(default_factory=lambda: ["biorxiv"])
+    preprint_max_pages: int = Field(
+        default=DEFAULT_PREPRINT_MAX_PAGES,
+        description="Pages of the preprint date-interval API to walk per server, 100 records each. The API has no keyword search, so a full window has to be paged and filtered locally.",
+    )
     min_relevance_score: float = Field(default=0.6, description="Relevance verdicts below this score are dropped.")
     min_match_confidence: float = Field(
         default=0.75,

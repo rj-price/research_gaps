@@ -2,6 +2,7 @@ name: evals
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -29,8 +30,10 @@ jobs:
   suites:
     name: Eval suites (billed)
     runs-on: ubuntu-latest
-    # Forks have no access to the API key, and a push from one must not fail the run
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Every run of this job costs real money, so it is deliberately narrow: pushes to main,
+    # the weekly schedule, and manual dispatch. Pull requests get the free offline harness
+    # only — scoring a branch on both its push and its PR event billed every change twice.
+    if: github.event_name != 'pull_request'
     needs: harness
     steps:
       - uses: actions/checkout@v4

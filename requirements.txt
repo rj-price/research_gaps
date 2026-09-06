@@ -1,7 +1,11 @@
-google-genai
+pydantic
 pypdf
 python-dotenv
 tqdm
 aiolimiter
 tenacity
 aiosqlite
+httpx
+fastapi
+uvicorn
+python-multipart

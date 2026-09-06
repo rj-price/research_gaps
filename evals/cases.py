@@ -131,3 +131,8 @@ def load_gap_matching() -> GapMatchDataset:
 
 def load_gap_analysis() -> GapAnalysisDataset:
     return _load(GapAnalysisDataset, "gap_analysis.json")
+
+
+def load_gap_analysis_abstracts() -> GapAnalysisDataset:
+    """The same fixtures as abstracts: what the rolling watcher actually feeds the Critic."""
+    return _load(GapAnalysisDataset, "gap_analysis_abstracts.json")

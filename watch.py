@@ -10,8 +10,11 @@ import logging
 
 from dotenv import load_dotenv
 
-from modules import db
+from aiolimiter import AsyncLimiter
+
+from modules import db, rolling
 from modules.config import load_config
+from modules.llm import get_client
 from modules.watch import run_watch
 
 logging.basicConfig(
@@ -37,6 +40,8 @@ async def cmd_run(args) -> None:
         digest_path=args.output,
         deliver=not args.no_deliver,
         dry_run=args.dry_run,
+        rolling_synthesis=not args.no_rolling,
+        force_rolling=args.force_rolling,
     )
 
 
@@ -49,7 +54,8 @@ async def cmd_gaps(args) -> None:
     for gap in gaps:
         marker = "OPEN" if gap["status"] == "open" else gap["status"].upper()
         print(f"[{marker}] {gap['gap_id']}  {gap['title']}")
-        print(f"         subject: {gap['subject']}  |  category: {gap['category']}")
+        origin = "abstracts" if gap.get("origin") == "abstract" else "full text"
+        print(f"         subject: {gap['subject']}  |  category: {gap['category']}  |  from: {origin}")
         print(f"         {gap['description']}\n")
 
 
@@ -57,6 +63,39 @@ async def cmd_reopen(args) -> None:
     await db.init_db()
     await db.set_gap_status(args.gap_id, "open")
     print(f"Gap {args.gap_id} reopened.")
+
+
+async def cmd_synthesise(args) -> None:
+    """Runs rolling gap synthesis over the banked backlog without fetching anything new."""
+    config = load_config(args.config)
+    if args.model:
+        config.model = args.model
+
+    await db.init_db()
+    backlog = await db.get_synthesis_backlog()
+    if not backlog:
+        print("No unsynthesised relevant papers banked. Run the watcher first.")
+        return
+
+    grouped = rolling.group_backlog(backlog, config.subjects)
+    unrouted = len(backlog) - len({p["paper_id"] for papers in grouped.values() for p in papers})
+    for name, papers in sorted(grouped.items()):
+        noun = "paper" if len(papers) == 1 else "papers"
+        print(f"{name}: {len(papers)} {noun} banked (trigger at {config.rolling_min_papers})")
+    if unrouted:
+        print(f"{unrouted} banked papers match no subject group and will not be synthesised.")
+
+    if args.status:
+        return
+
+    client = get_client()
+    try:
+        new_gaps, merged = await rolling.run_rolling_synthesis(
+            client, config, AsyncLimiter(config.rate_limit, 60), force=args.force
+        )
+    finally:
+        await client.aclose()
+    print(f"Rolling synthesis complete: {new_gaps} new gaps, {merged} merged into existing ones.")
 
 
 def main() -> None:
@@ -79,11 +118,32 @@ def main() -> None:
         "--dry-run", action="store_true",
         help="Fetch and keyword-filter only: no LLM calls, no database writes",
     )
+    run_parser.add_argument(
+        "--no-rolling", action="store_true",
+        help="Skip rolling gap synthesis; screen and match only",
+    )
+    run_parser.add_argument(
+        "--force-rolling", action="store_true",
+        help="Synthesise every subject with a backlog, ignoring rolling_min_papers",
+    )
     run_parser.set_defaults(func=cmd_run)
 
     gaps_parser = subparsers.add_parser("gaps", help="List the stored research gaps")
     gaps_parser.add_argument("--all", action="store_true", help="Include gaps already marked addressed")
     gaps_parser.set_defaults(func=cmd_gaps)
+
+    synth_parser = subparsers.add_parser(
+        "synthesise", help="Identify gaps from the banked watched papers, without fetching"
+    )
+    synth_parser.add_argument("--config", default="watchlist.json", help="Path to the watchlist JSON")
+    synth_parser.add_argument("--model", help="Override the OpenRouter model ID")
+    synth_parser.add_argument(
+        "--force", action="store_true", help="Synthesise every subject with a backlog, ignoring rolling_min_papers"
+    )
+    synth_parser.add_argument(
+        "--status", action="store_true", help="Report the backlog per subject and exit without calling the LLM"
+    )
+    synth_parser.set_defaults(func=cmd_synthesise)
 
     reopen_parser = subparsers.add_parser("reopen", help="Mark an addressed gap as open again")
     reopen_parser.add_argument("gap_id")

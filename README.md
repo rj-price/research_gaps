@@ -12,7 +12,8 @@ A powerful, asynchronous Python tool that uses the OpenRouter API to analyse col
     2.  **Critic Agent:** Deep-dives into the synthesis and raw summaries to rigorously extract unexplored territories, methodological flaws, and contradictions.
     3.  **Innovator Agent:** Uses the Critic's strict gaps to formulate 3 highly specific and novel research proposals.
 -   **Ambient Literature Watcher:** A scheduled agent that watches PubMed and bioRxiv for your study organisms, screens new papers for genuine relevance, and flags when one of your previously identified research gaps has been filled by a new publication.
--   **Scored, Not Vibed:** Three eval suites score the LLM-dependent steps against fixed datasets — relevance screening and gap matching against hand-labelled ground truth, gap analysis quality against an LLM judge — with regression thresholds enforced in CI.
+-   **Rolling Gap Identification:** The watcher does not only match against gaps you already have — once enough relevant papers have accumulated for a subject, it runs the Synthesiser and Critic over their abstracts to identify new gaps, deduplicating them against the ones already tracked.
+-   **Scored, Not Vibed:** Four eval suites score the LLM-dependent steps against fixed datasets — relevance screening and gap matching against hand-labelled ground truth, gap analysis quality against an LLM judge, from full text and from abstracts — with regression thresholds enforced in CI.
 -   **Async & Rate-Limited:** Uses `asyncio` for high-throughput concurrent processing, gated seamlessly by `aiolimiter` to respect API rate limits. Automatically retries transient network or API errors with exponential backoff using `tenacity`.
 
 ## Architecture Overview
@@ -183,8 +184,12 @@ cp watchlist.example.json watchlist.json
 | `interests` | Free text describing the group's focus. Drives the relevance screener. |
 | `pubmed_query` | Optional extra PubMed qualifier, ANDed with the term clause. |
 | `preprint_servers` | `biorxiv`, `medrxiv`, or both. Set to `[]` to skip preprints. |
+| `preprint_max_pages` | Pages of the preprint API to walk per server, 100 records each (default 400). The API has no keyword search, so the whole window is paged and filtered locally. |
 | `min_relevance_score` | Relevance verdicts below this score are dropped. Raise it if the digest is noisy. |
 | `min_match_confidence` | Gap matches below this confidence are discarded rather than stored. |
+| `subjects` | Subject groups for rolling gap synthesis, each with the watch terms that route papers into it. Leave empty to disable. |
+| `rolling_min_papers` | Unsynthesised relevant papers a subject must accumulate before it is synthesised. |
+| `rolling_max_papers` | Cap on papers fed to one synthesis, so a large backlog cannot blow the context window. |
 | `delivery` | Any of `email`, `push`. Leave empty to only write the digest to a file. |
 
 Credentials for delivery live in `.env` — see `.env.example`.
@@ -211,6 +216,60 @@ python watch.py reopen <gap_id>  # if you disagree with the agent
 from the last successful run, overlapping by a day because PubMed entry dates settle
 late.
 
+### Rolling gap identification
+
+The PDF pipeline in `main.py` produces gaps from papers you have deliberately read. The
+watcher produces them from the abstracts it is already screening, so the gap store keeps
+growing between those sessions:
+
+```bash
+python watch.py synthesise --status   # what is banked, per subject. Free: no LLM calls
+python watch.py synthesise            # synthesise every subject over its trigger
+python watch.py synthesise --force    # ignore the trigger and synthesise anything banked
+python watch.py run --no-rolling      # screen and match only, as before
+```
+
+It also runs at the end of `watch.py run` by default — after matching, never before, so a
+gap minted from this run's papers is not immediately offered back to those same papers as
+something to fill.
+
+Four things make it work rather than just run:
+
+**Subjects.** The Critic needs a topic, and one bucket holding rust genomics and soft
+fruit breeding together produces gaps too general to match anything. Declare subject
+groups in `watchlist.json`; papers route into them by the watch terms they matched, so
+routing is free and deterministic rather than another model call.
+
+```json
+"subjects": [
+  { "name": "rust fungi genomics and resistance breaking",
+    "terms": ["Puccinia", "Pucciniales", "yellow rust"] }
+],
+"rolling_min_papers": 12,
+"rolling_max_papers": 30
+```
+
+**A trigger, not every run.** A subject waits until `rolling_min_papers` unsynthesised
+relevant papers have accumulated. Five abstracts do not make a field, and synthesising
+them anyway produces exactly the vague gaps that clutter the store — a single-abstract
+subject run under `--force` yielded five, none of them worth keeping.
+
+**Deduplication.** `make_gap_id` hashes the exact title, so a reworded restatement of the
+same gap would otherwise become a new row every cycle and the matcher's prompt would grow
+without bound. Every candidate is checked against the gaps already stored for that subject
+before it is written; a duplicate updates the existing gap's description and inherits the
+new paper as a source. The title is never rewritten, because it is the ID's input and
+changing it would orphan every match already recorded.
+
+**Provenance.** `gap_sources` records which papers a gap came from, and those papers are
+excluded when that gap is offered to the matcher. Without it a paper eventually gets
+credited with filling the gap it created.
+
+Gaps found this way are marked `origin='abstract'`, shown as `from: abstracts` in
+`watch.py gaps` and flagged in the digest. Treat them as leads: no abstract states its own
+limitations, which is the Critic's richest input in the full-text path. The
+`gap_analysis_abstracts` eval suite exists to measure exactly that weakness.
+
 ### Scheduling
 
 A weekly digest, every Monday at 07:00:
@@ -224,7 +283,7 @@ rather than lost, and running it twice by accident costs nothing.
 
 ## Evals
 
-Three suites score the parts of the pipeline where the model can quietly get worse.
+Four suites score the parts of the pipeline where the model can quietly get worse.
 Each drives the real production code path — `screen_relevance`, `match_paper_to_gaps`,
 the Synthesiser and Critic agents — so a regression in the app shows up here rather than
 in a digest six weeks later.
@@ -234,6 +293,7 @@ in a digest six weeks later.
 | `relevance` | The watcher's first filter | 14 hand-labelled papers, including keyword traps: *Fusarium* keratitis, a *Rubus* nutraceutical study, strawberry as a pesticide-residue matrix | precision, recall, F1, hard-negative rejection rate |
 | `gap_matching` | Linking a new paper to a stored gap | 4 gap fixtures, 6 papers with expected links and relationships, two of which must match nothing | link precision/recall/F1, relationship accuracy, silence on unrelated papers |
 | `gap_analysis` | The quality of the gaps the Critic produces | Summary sets with gaps deliberately planted in them, plus claims the summaries do not support | mean groundedness and specificity (judge, 1–5), theme recall, fabrication rate, structural issues |
+| `gap_analysis_abstracts` | The same, on the evidence the rolling watcher actually has | The same two subjects as abstracts, with distractors that are all plausible *author-stated limitations* no abstract contains | as above; `fabrication_rate` is the one that matters |
 
 The first two have objective answers, so they are scored arithmetically. Gap quality has
 no such answer, so a **stronger judge model** (`openai/gpt-5.6-terra` by default,
@@ -243,7 +303,7 @@ judged to fill it. The judge never sees the answer key while grading individual 
 model grading its own output flatters itself, so keep the judge different from the model
 under test.
 
-Alongside the judged scores, the `gap_analysis` suite runs free deterministic checks:
+Alongside the judged scores, both gap analysis suites run free deterministic checks:
 valid category, title within 15 words, non-empty description, at least one discrete gap.
 These matter because the watcher stores and matches against those fields.
 
@@ -286,10 +346,19 @@ Measured on `google/gemini-2.5-flash`, judged by `openai/gpt-5.6-terra`, Septemb
 | `relevance` | precision 1.00, recall 1.00, F1 1.00, all five hard negatives rejected |
 | `gap_matching` | precision 1.00, recall 1.00, relationship accuracy 1.00, silent on both unrelated papers |
 | `gap_analysis` | grounded 4.77/5, specific 4.92/5, theme recall 1.00, no fabrications, no structural issues |
+| `gap_analysis_abstracts` | grounded 4.38/5, specific 4.50/5, theme recall 0.50, no fabrications, no structural issues |
 
-Everything sits at the ceiling, which means the datasets currently prove the pipeline is
-not broken rather than discriminating between good and better. Feed real failures back in
-as they turn up — that is what sharpens them.
+The first three sit at the ceiling, which means those datasets currently prove the
+pipeline is not broken rather than discriminating between good and better. Feed real
+failures back in as they turn up — that is what sharpens them.
+
+`gap_analysis_abstracts` is the one that discriminates, and its lower theme recall is the
+honest cost of the feature rather than a bug: abstracts state findings, not limitations,
+so some gaps genuinely are not visible from them. Its thresholds are set accordingly, with
+one exception — `fabrication_rate` is held at the full-text bound of 0.05, because weaker
+evidence is not a licence to invent. Tightening the Critic's instruction to return fewer,
+more concrete gaps moved that suite from 16 gaps at specificity 4.0 to 8 gaps at 4.5,
+trading theme recall (0.625 to 0.50) for gaps worth storing.
 
 The `gap_analysis` run above also earned its keep on the first attempt: it found that
 **every** gap the Critic produced carried an invalid `category`, because the model echoed

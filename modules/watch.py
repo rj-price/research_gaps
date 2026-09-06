@@ -1,9 +1,10 @@
 """Orchestration for the ambient literature watcher.
 
 One run: fetch a date window from every source, drop papers already seen, screen the
-remainder for relevance, match the survivors against stored research gaps, then render
-and deliver a digest. Every stage is recorded in SQLite so runs are resumable and a
-crashed run never re-screens the same paper twice.
+remainder for relevance, match the survivors against stored research gaps, synthesise
+new gaps from the accumulated backlog, then render and deliver a digest. Every stage is
+recorded in SQLite so runs are resumable and a crashed run never re-screens the same
+paper twice.
 """
 import asyncio
 import logging
@@ -12,7 +13,7 @@ from typing import List, Tuple
 
 from aiolimiter import AsyncLimiter
 
-from modules import db, digest as digest_module, sources
+from modules import db, digest as digest_module, rolling, sources
 from modules.config import WatchConfig
 from modules.llm import get_client
 from modules.models import WatchedPaper
@@ -44,6 +45,7 @@ async def collect_new_papers(config: WatchConfig, start: date, end: date) -> Tup
         preprint_servers=config.preprint_servers,
         extra_query=config.pubmed_query,
         retmax=config.max_results,
+        preprint_max_pages=config.preprint_max_pages,
     )
     logger.info(f"Fetched {len(fetched)} candidate papers from {start} to {end}.")
 
@@ -55,7 +57,8 @@ async def collect_new_papers(config: WatchConfig, start: date, end: date) -> Tup
 
 async def run_watch(
     config: WatchConfig, since: str | None = None, digest_path: str | None = None,
-    deliver: bool = True, dry_run: bool = False,
+    deliver: bool = True, dry_run: bool = False, rolling_synthesis: bool = True,
+    force_rolling: bool = False,
 ) -> str:
     """Runs one watch cycle and returns the rendered digest."""
     await db.init_db()
@@ -69,6 +72,7 @@ async def run_watch(
             terms=config.terms, start=start, end=end,
             preprint_servers=config.preprint_servers,
             extra_query=config.pubmed_query, retmax=config.max_results,
+            preprint_max_pages=config.preprint_max_pages,
         )
         lines = [f"# Dry run: {start} to {end}", "", f"{len(fetched)} candidates before screening.", ""]
         for paper in fetched:
@@ -94,6 +98,8 @@ async def run_watch(
             )
 
             gaps = await db.get_gaps(status="open")
+            # A paper that helped generate a gap must not then be reported as filling it.
+            gap_sources = await db.get_gap_sources([gap["gap_id"] for gap in gaps])
             logger.info(f"Matching against {len(gaps)} stored open gaps.")
 
             for paper in new_papers:
@@ -108,7 +114,10 @@ async def run_watch(
                     continue
                 relevant_count += 1
 
-                result = await match_paper_to_gaps(client, config.model, paper, gaps, limiter)
+                candidate_gaps = [
+                    gap for gap in gaps if paper.paper_id not in gap_sources.get(gap["gap_id"], ())
+                ]
+                result = await match_paper_to_gaps(client, config.model, paper, candidate_gaps, limiter)
                 for match in result.matches:
                     if match.confidence < config.min_match_confidence:
                         logger.info(
@@ -123,6 +132,19 @@ async def run_watch(
                     if match.relationship == "fills" and match.confidence >= 0.8:
                         await db.set_gap_status(match.gap_id, "addressed")
                         logger.info(f"Gap {match.gap_id} marked addressed by {paper.paper_id}.")
+
+        # After matching, never before: gaps minted from this run's papers would otherwise
+        # be offered straight back to those same papers as something to fill.
+        # Checked before the client is built: a quiet week with nothing banked should not
+        # need an API key at all, which is how the watcher behaved before this step existed.
+        if rolling_synthesis and config.subjects and await db.get_synthesis_backlog(limit=1):
+            if client is None:
+                client = get_client()
+            new_gaps, merged_gaps = await rolling.run_rolling_synthesis(
+                client, config, AsyncLimiter(config.rate_limit, 60), force=force_rolling
+            )
+            if new_gaps or merged_gaps:
+                logger.info(f"Rolling synthesis: {new_gaps} new gaps, {merged_gaps} merged.")
 
         pending = await db.get_undigested()
         report = digest_module.render_digest(pending, start.isoformat(), end.isoformat())

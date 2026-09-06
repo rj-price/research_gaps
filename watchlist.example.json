@@ -1,5 +1,10 @@
 {
-  "organisms": ["Fusarium", "Rubus", "Fragaria", "Rhynchosporium"],
+  "organisms": [
+    "Fusarium",
+    "Rubus",
+    "Fragaria",
+    "Rhynchosporium"
+  ],
   "extra_terms": [
     "Fusarium oxysporum f. sp. fragariae",
     "Rhynchosporium commune",
@@ -8,10 +13,32 @@
   ],
   "interests": "Plant pathology and crop genomics: effector biology, presence/absence variation across isolates, host resistance genes, QTL mapping in Rubus and Fragaria, and pathogen population structure.",
   "pubmed_query": "",
-  "preprint_servers": ["biorxiv"],
+  "preprint_servers": [
+    "biorxiv"
+  ],
+  "preprint_max_pages": 400,
   "min_relevance_score": 0.6,
   "min_match_confidence": 0.75,
-  "delivery": ["email"],
+  "subjects": [
+    {
+      "name": "Fusarium wilt of soft fruit",
+      "terms": [
+        "Fusarium"
+      ]
+    },
+    {
+      "name": "soft fruit genomics",
+      "terms": [
+        "Rubus",
+        "Fragaria"
+      ]
+    }
+  ],
+  "rolling_min_papers": 12,
+  "rolling_max_papers": 30,
+  "delivery": [
+    "email"
+  ],
   "model": "google/gemini-2.5-flash",
   "rate_limit": 5,
   "max_results": 200

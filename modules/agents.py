@@ -6,13 +6,13 @@ from modules.models import SynthesisResult, CriticResult, InnovatorResult
 
 logger = logging.getLogger(__name__)
 
-async def run_synthesiser_agent(client: "OpenRouterClient", model_id: str, summaries: List[str], subject: str, generate_func) -> SynthesisResult:
+async def run_synthesiser_agent(client: "OpenRouterClient", model_id: str, summaries: List[str], subject: str, generate_func, source_note: str = "") -> SynthesisResult:
     """Agent 1: Reads all summaries and creates a cohesive state of the field."""
     logger.info("Agent 1 (Synthesiser) is analysing summaries...")
     combined_summaries = "\n\n---\n\n".join(summaries)
     prompt = f"""
     You are the Synthesiser Agent. You have been provided with summaries of recent academic papers on "{subject}".
-    
+    {source_note}
     Your goal is to conduct a meta-analysis and synthesise the current state of the art.
     Read the following summaries and extract a cohesive narrative of what is established, and the dominant methodologies.
     
@@ -26,14 +26,14 @@ async def run_synthesiser_agent(client: "OpenRouterClient", model_id: str, summa
         system_instruction="You are an expert academic Synthesiser.",
     )
 
-async def run_critic_agent(client: "OpenRouterClient", model_id: str, summaries: List[str], synthesis: SynthesisResult, generate_func) -> CriticResult:
+async def run_critic_agent(client: "OpenRouterClient", model_id: str, summaries: List[str], synthesis: SynthesisResult, generate_func, source_note: str = "") -> CriticResult:
     """Agent 2: Reads the synthesis and raw summaries to find deep research gaps."""
     logger.info("Agent 2 (Critic) is finding research gaps...")
     combined_summaries = "\n\n---\n\n".join(summaries)
     
     prompt = f"""
     You are the Critic Agent. You have been provided with raw paper summaries and a synthesised 'State of the Field'.
-    
+    {source_note}
     Your goal is to strictly identify systemic Research Gaps. Look for missing variables, methodological flaws, and contradictions.
     Do not be polite; be highly critical and analytical.
 

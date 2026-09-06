@@ -234,3 +234,35 @@ async def test_gap_analysis_suite_retries_a_judge_that_recovers(monkeypatch, lim
 
     assert result.metrics["judge_errors"] == 0
     assert result.metrics["mean_grounded"] == 4.0
+
+
+async def test_the_abstract_variant_runs_the_same_agents_over_its_own_dataset(monkeypatch, limiter):
+    """The rolling watcher's evidence is abstracts, so the suite that guards it must use them."""
+    prompts = []
+
+    def handler(response_model, prompt, model_id):
+        prompts.append(prompt)
+        if response_model is SynthesisResult:
+            return SynthesisResult(narrative="n", dominant_methodologies="m")
+        if response_model is CriticResult:
+            return CriticResult(
+                unexplored_territories="u", methodological_limitations="m", contradictions="c",
+                gaps=[IdentifiedGap(title="A specific gap in Fola effector content",
+                                    category="unexplored_territory", description="d")],
+            )
+        if response_model is GapGradeBatch:
+            return GapGradeBatch(grades=[GapGrade(gap_index=0, grounded=5, specific=5, comment="")])
+        return CoverageReport(
+            themes=[ThemeVerdict(theme_index=i, covered=True, covering_gap="A specific gap")
+                    for i in range(4)],
+            distractors=[DistractorVerdict(claim_index=i, asserted=False, quote="") for i in range(5)],
+        )
+
+    _install(monkeypatch, handler)
+    result = await suites.run_gap_analysis_abstracts(None, "stub-model", limiter)
+
+    assert result.suite == "gap_analysis_abstracts"
+    assert result.dataset == "gap-analysis-abstracts-v1"
+    assert result.metrics["fabrication_rate"] == 0.0
+    # Both agents are warned they are reading abstracts, not papers.
+    assert sum("not full papers" in prompt for prompt in prompts) == 4

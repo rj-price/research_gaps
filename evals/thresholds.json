@@ -1,23 +1,73 @@
 {
   "relevance": {
-    "f1": {"min": 0.9},
-    "precision": {"min": 0.85},
-    "recall": {"min": 0.85},
-    "hard_negative_rejection_rate": {"min": 0.8},
-    "no_verdict": {"max": 0}
+    "f1": {
+      "min": 0.9
+    },
+    "precision": {
+      "min": 0.85
+    },
+    "recall": {
+      "min": 0.85
+    },
+    "hard_negative_rejection_rate": {
+      "min": 0.8
+    },
+    "no_verdict": {
+      "max": 0
+    }
   },
   "gap_matching": {
-    "f1": {"min": 0.85},
-    "recall": {"min": 0.8},
-    "relationship_accuracy": {"min": 0.75},
-    "silence_on_unrelated": {"min": 0.9}
+    "f1": {
+      "min": 0.85
+    },
+    "recall": {
+      "min": 0.8
+    },
+    "relationship_accuracy": {
+      "min": 0.75
+    },
+    "silence_on_unrelated": {
+      "min": 0.9
+    }
   },
   "gap_analysis": {
-    "mean_grounded": {"min": 4.0},
-    "mean_specific": {"min": 4.0},
-    "theme_recall": {"min": 0.75},
-    "fabrication_rate": {"max": 0.05},
-    "structural_issues": {"max": 0},
-    "judge_errors": {"max": 0}
+    "mean_grounded": {
+      "min": 4.0
+    },
+    "mean_specific": {
+      "min": 4.0
+    },
+    "theme_recall": {
+      "min": 0.75
+    },
+    "fabrication_rate": {
+      "max": 0.05
+    },
+    "structural_issues": {
+      "max": 0
+    },
+    "judge_errors": {
+      "max": 0
+    }
+  },
+  "gap_analysis_abstracts": {
+    "mean_grounded": {
+      "min": 4.0
+    },
+    "mean_specific": {
+      "min": 3.8
+    },
+    "theme_recall": {
+      "min": 0.375
+    },
+    "fabrication_rate": {
+      "max": 0.05
+    },
+    "structural_issues": {
+      "max": 0
+    },
+    "judge_errors": {
+      "max": 0
+    }
   }
 }

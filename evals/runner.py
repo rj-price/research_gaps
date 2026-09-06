@@ -86,7 +86,7 @@ def format_failures(result: SuiteResult) -> str:
                     f"  {row['paper_id']}: {rel['gap_id']} labelled '{rel['predicted']}', "
                     f"expected one of {rel['expected']}"
                 )
-    elif result.suite == "gap_analysis":
+    elif result.suite.startswith("gap_analysis"):
         for row in result.cases:
             for issue in row["structural_issues"]:
                 lines.append(f"  {row['case_id']}: {issue}")

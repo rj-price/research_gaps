@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from aiolimiter import AsyncLimiter
 
-from modules.llm import get_client, summarise_paper, identify_gaps
+from modules.llm import DEFAULT_MODEL, get_client, summarise_paper, identify_gaps
 from modules.db import init_db
 
 # Load environment variables
@@ -40,7 +40,7 @@ tasks: Dict[str, Dict] = {}
 
 class AnalysisRequest(BaseModel):
     subject: str = "the provided topics"
-    model: str = "gemini-2.5-flash"
+    model: str = DEFAULT_MODEL
     rate_limit: int = 5
     concurrent_requests: int = 5
 
@@ -52,6 +52,7 @@ async def startup_event():
 
 async def run_analysis(task_id: str, subject: str, model: str, rate_limit: int, concurrent_requests: int, file_paths: List[str]):
     tasks[task_id]["status"] = "processing"
+    client = None
     try:
         client = get_client()
         limiter = AsyncLimiter(rate_limit, 60)
@@ -89,6 +90,8 @@ async def run_analysis(task_id: str, subject: str, model: str, rate_limit: int, 
         tasks[task_id]["status"] = "failed"
         tasks[task_id]["error"] = str(e)
     finally:
+        if client:
+            await client.aclose()
         # Cleanup temp files
         for path in file_paths:
             if os.path.exists(path):
@@ -98,7 +101,7 @@ async def run_analysis(task_id: str, subject: str, model: str, rate_limit: int, 
 async def analyse(
     background_tasks: BackgroundTasks,
     subject: str = "the provided topics",
-    model: str = "gemini-2.5-flash",
+    model: str = DEFAULT_MODEL,
     rate_limit: int = 5,
     concurrent_requests: int = 5,
     files: List[UploadFile] = File(...)

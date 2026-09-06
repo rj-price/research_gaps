@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from tqdm.asyncio import tqdm
 from aiolimiter import AsyncLimiter
 
-from modules.llm import get_client, summarise_paper, identify_gaps
+from modules.llm import DEFAULT_MODEL, get_client, summarise_paper, identify_gaps
 
 # Setup logging
 logging.basicConfig(
@@ -55,21 +55,24 @@ async def process_pdfs(args: argparse.Namespace) -> None:
     ]
     
     paper_summaries = []
-    
-    # Use tqdm wrapper for asyncio to show progress bar
-    for f in tqdm.as_completed(tasks, total=len(tasks), desc="Summarising Papers"):
-        summary = await f
-        paper_summaries.append(summary)
 
-    # Filter out exact error messages if any (optional, but good for clean output)
-    valid_summaries = [s for s in paper_summaries if not s.startswith("Error summarising")]
+    try:
+        # Use tqdm wrapper for asyncio to show progress bar
+        for f in tqdm.as_completed(tasks, total=len(tasks), desc="Summarising Papers"):
+            summary = await f
+            paper_summaries.append(summary)
 
-    if not valid_summaries:
-        logger.error("No valid summaries generated.")
-        return
+        # Filter out exact error messages if any (optional, but good for clean output)
+        valid_summaries = [s for s in paper_summaries if not s.startswith("Error summarising")]
 
-    logger.info("Analysing research gaps...")
-    report = await identify_gaps(client, args.model, valid_summaries, args.subject, limiter)
+        if not valid_summaries:
+            logger.error("No valid summaries generated.")
+            return
+
+        logger.info("Analysing research gaps...")
+        report = await identify_gaps(client, args.model, valid_summaries, args.subject, limiter)
+    finally:
+        await client.aclose()
 
     with open(args.output, "w") as f:
         f.write(f"# Research Gap Analysis: {args.subject}\n\n")
@@ -103,7 +106,7 @@ def main():
         "--output", help="Output file for the report", default="research_gap_report.md"
     )
     parser.add_argument(
-        "--model", help="Gemini model ID to use", default="gemini-2.5-flash"
+        "--model", help="OpenRouter model ID to use", default=DEFAULT_MODEL
     )
     parser.add_argument(
         "--rate-limit", help="Max requests per minute", type=int, default=5

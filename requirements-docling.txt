@@ -1,0 +1,5 @@
+# Optional: layout-aware PDF conversion (real tables, heading structure, OCR for scans).
+# Install alongside requirements.txt, then set PDF_MODE=docling (or leave PDF_MODE unset,
+# since "auto" prefers docling whenever it is importable).
+#     pip install -r requirements-docling.txt
+docling

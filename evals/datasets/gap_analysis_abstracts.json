@@ -1,0 +1,51 @@
+{
+  "name": "gap-analysis-abstracts-v1",
+  "note": "The same two subjects as gap-analysis-v1, but the Critic sees published abstracts rather than full-text summaries. Abstracts state findings and almost never state limitations, so this measures whether the rolling watcher's gaps stay grounded when the richest input is missing. The distractor claims are deliberately of one kind: plausible author-stated limitations and methodological details that appear nowhere in the abstracts. A critic that invents them is doing the thing this feature is most likely to do wrong.",
+  "cases": [
+    {
+      "case_id": "fola-abstracts",
+      "subject": "Virulence determinants of Fusarium oxysporum f. sp. fragariae",
+      "summaries": [
+        "Title: Secreted in xylem gene complement of Fusarium oxysporum f. sp. fragariae isolate Fola-14\nSource: pubmed (2026-03-11)\nAbstract: Fusarium oxysporum f. sp. fragariae (Fola) causes wilt of cultivated strawberry. We sequenced the reference isolate Fola-14 on the Illumina platform and assembled the genome with SPAdes. Homology searching against characterised SIX (secreted in xylem) genes identified seven SIX homologues, of which SIX1, SIX6 and SIX8 were present at high identity to the tomato-infecting formae speciales. Three homologues carried premature stop codons. The SIX complement was located on contigs of low coverage and atypical GC content, consistent with an accessory genomic compartment.",
+        "Title: Pathogenicity of Fusarium oxysporum f. sp. fragariae on eight strawberry cultivars under controlled conditions\nSource: pubmed (2026-04-02)\nAbstract: We assessed the aggressiveness of four Fola isolates on eight October-fruiting strawberry cultivars. Plants were inoculated by root dip with a conidial suspension at 1x10^6 spores/ml and maintained in a controlled-environment glasshouse at 25 degrees C. Wilt severity was scored on a 0-5 scale at 28 days post inoculation. Isolates differed significantly in aggressiveness (P<0.001), and cultivar Malling Centenary was the most susceptible in every isolate-cultivar combination. Mean disease scores ranged from 1.2 to 4.6.",
+        "Title: Comparative genomics of five Fusarium oxysporum formae speciales infecting rosaceous hosts\nSource: biorxiv (2026-05-19)\nAbstract: Long-read assemblies were generated for five Fusarium oxysporum isolates infecting rosaceous hosts. Core genome phylogeny placed the strawberry-infecting isolates in two unrelated clades, indicating that host specificity on strawberry has arisen more than once. Accessory chromosomes ranged from 1.9 to 4.4 Mb and carried the majority of predicted effector genes. Effector repertoires were poorly predicted by core genome relatedness, and pairs of isolates in different clades shared near-identical effector complements.",
+        "Title: Expression of candidate effectors during early colonisation of strawberry roots by Fusarium oxysporum f. sp. fragariae\nSource: pubmed (2026-06-30)\nAbstract: RNA was extracted from strawberry roots at 3, 6 and 9 days after inoculation with Fola isolate Fola-14 and sequenced. Of the seven SIX homologues, four were induced more than 20-fold relative to growth in culture, with peak expression at 6 days. The three homologues carrying premature stop codons were transcribed at levels comparable to the intact genes. Twelve additional small secreted protein genes showed a similar in planta induction profile."
+      ],
+      "expected_themes": [
+        "The SIX gene complement is described only from the short-read reference isolate Fola-14, so its presence/absence variation across the field isolates used in pathogenicity testing is unmeasured",
+        "The three SIX homologues carrying premature stop codons are transcribed but their function or contribution to virulence has not been tested",
+        "Effector repertoire does not follow the core genome phylogeny, so the basis of host specificity on strawberry is unresolved",
+        "Aggressiveness differences between isolates are reported without any link to their effector or accessory chromosome content"
+      ],
+      "distractor_claims": [
+        "The authors of the Fola-14 assembly stated that short-read data prevented them from resolving the accessory chromosome, and called for long-read sequencing",
+        "The pathogenicity study reported that its glasshouse results failed to reproduce under field conditions",
+        "The cultivar panel was acknowledged by the authors to be unrepresentative of the commercial breeding pool",
+        "Expression of the SIX homologues was validated by qRT-PCR in addition to RNA sequencing",
+        "The comparative genomics study identified horizontal transfer of an accessory chromosome between the two strawberry-infecting clades"
+      ]
+    },
+    {
+      "case_id": "rhynchosporium-abstracts",
+      "subject": "Effector biology of Rhynchosporium commune on barley",
+      "summaries": [
+        "Title: The NIP effector family of Rhynchosporium commune\nSource: pubmed (2026-02-14)\nAbstract: Rhynchosporium commune causes barley scald. Homology searching and manual curation of the reference genome of isolate UK7 identified six genes of the necrosis-inducing protein (NIP) family. NIP1, NIP2 and NIP3 have been characterised previously; the remaining three are reported here for the first time. All six carry predicted signal peptides and are expressed during infection. Heterologous expression of NIP1 in Nicotiana benthamiana produced necrosis on infiltration.",
+        "Title: Population genomic structure of Rhynchosporium commune across European barley growing regions\nSource: biorxiv (2026-04-08)\nAbstract: We sequenced 148 R. commune isolates collected from spring and winter barley across seven European countries. Population structure was weak, with the majority of genetic variance partitioned within rather than between sampling sites. Nucleotide diversity was elevated in genomic regions containing predicted effectors. NIP1 was absent from 31 per cent of isolates. Isolates lacking NIP1 were distributed across the phylogeny rather than forming a clade.",
+        "Title: Barley Rrs1 resistance and virulence of Rhynchosporium commune field isolates\nSource: pubmed (2026-05-27)\nAbstract: Twenty-four R. commune isolates were inoculated onto near-isogenic barley lines differing at the Rrs1 locus. Lesion area was measured at 21 days post inoculation. Isolates carrying an intact NIP1 gene produced significantly smaller lesions on Rrs1 lines than isolates lacking NIP1 (P=0.004), consistent with NIP1 acting as an avirulence determinant. Three isolates carrying intact NIP1 nevertheless produced large lesions on Rrs1 lines."
+      ],
+      "expected_themes": [
+        "Three of the six NIP-family genes are newly reported and no functional or virulence data exist for them",
+        "The three isolates carrying intact NIP1 that were still virulent on Rrs1 lines are unexplained and point to a second determinant",
+        "The effector complement is described from a single reference isolate while the population data show NIP1 is absent from a third of isolates, so gene content across the population is unresolved",
+        "Elevated diversity in effector regions is reported without testing whether it is driven by selection"
+      ],
+      "distractor_claims": [
+        "The population genomics study stated that its sampling was biased towards spring barley and cautioned against generalising to winter crops",
+        "NIP2 and NIP3 were shown to trigger necrosis in Nicotiana benthamiana in the same way as NIP1",
+        "The Rrs1 study reported that the three anomalous isolates carried point mutations in the NIP1 coding sequence",
+        "The reference isolate UK7 has been maintained by glasshouse passage since 1998 and may have lost effectors in culture",
+        "A genome-wide association study identified the second virulence determinant on chromosome 4"
+      ]
+    }
+  ]
+}

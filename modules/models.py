@@ -103,3 +103,21 @@ class GapMatch(BaseModel):
 
 class GapMatchResult(BaseModel):
     matches: List[GapMatch] = Field(description="Links from this paper to stored gaps. Empty if the paper addresses none of them.")
+
+
+class GapMergeDecision(BaseModel):
+    """Whether a freshly generated gap is genuinely new or a restatement of a stored one."""
+    new_gap_index: int = Field(description="The index of the candidate gap in the provided list.")
+    duplicate_of: str = Field(
+        default="",
+        description="The gap_id of the stored gap this restates, or an empty string if it is genuinely new.",
+    )
+    merged_description: str = Field(
+        default="",
+        description="When duplicate_of is set, a single description covering both statements of the gap. Empty otherwise.",
+    )
+    reason: str = Field(description="One sentence justifying the decision.")
+
+
+class GapMergeResult(BaseModel):
+    decisions: List[GapMergeDecision] = Field(description="One decision per candidate gap, in the order provided.")

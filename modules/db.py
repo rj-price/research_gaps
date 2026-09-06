@@ -74,8 +74,35 @@ async def init_db():
                 status TEXT NOT NULL DEFAULT 'running'
             )
         ''')
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS gap_sources (
+                gap_id TEXT NOT NULL,
+                paper_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (gap_id, paper_id)
+            )
+        ''')
+        await _add_missing_columns(db)
         await db.commit()
     logger.info("Database initialized.")
+
+
+# Columns added after the first release. SQLite has no "ADD COLUMN IF NOT EXISTS" and an
+# existing research_cache.db must survive the upgrade, so they are applied by hand.
+_ADDED_COLUMNS = {
+    "papers": [("synthesised", "INTEGER NOT NULL DEFAULT 0")],
+    "gaps": [("origin", "TEXT NOT NULL DEFAULT 'full_text'")],
+}
+
+
+async def _add_missing_columns(db):
+    for table, columns in _ADDED_COLUMNS.items():
+        async with db.execute(f"PRAGMA table_info({table})") as cursor:
+            existing = {row[1] for row in await cursor.fetchall()}
+        for name, definition in columns:
+            if name not in existing:
+                await db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+                logger.info(f"Migrated {table}: added column {name}.")
 
 
 def _now() -> str:
@@ -90,29 +117,82 @@ def make_gap_id(subject: str, title: str) -> str:
 
 # --- Gap store ---
 
-async def store_gaps(subject: str, gaps: Iterable) -> List[str]:
-    """Persists IdentifiedGap objects. Existing gaps keep their created_at and status."""
+async def store_gaps(
+    subject: str, gaps: Iterable, origin: str = "full_text", source_papers: Iterable[str] = (),
+) -> List[str]:
+    """Persists IdentifiedGap objects. Existing gaps keep their created_at and status.
+
+    `origin` records what the gap was derived from: 'full_text' for the PDF pipeline,
+    'abstract' for the rolling watcher. Abstracts carry no stated limitations, so gaps
+    drawn from them are weaker evidence and the digest says so.
+
+    `source_papers` are the paper_ids the gap was drawn from. They are excluded from
+    later gap matching, so a paper can never be reported as filling its own gap.
+    """
     gap_ids = []
+    sources = list(source_papers)
     now = _now()
     async with aiosqlite.connect(DB_PATH) as db:
         for gap in gaps:
             gap_id = make_gap_id(subject, gap.title)
             gap_ids.append(gap_id)
             await db.execute('''
-                INSERT INTO gaps (gap_id, subject, category, title, description, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
+                INSERT INTO gaps (gap_id, subject, category, title, description, status, origin, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?)
                 ON CONFLICT(gap_id) DO UPDATE SET
                     category = excluded.category,
                     description = excluded.description,
                     updated_at = excluded.updated_at
-            ''', (gap_id, subject, gap.category, gap.title, gap.description, now, now))
+            ''', (gap_id, subject, gap.category, gap.title, gap.description, origin, now, now))
+            for paper_id in sources:
+                await db.execute(
+                    'INSERT OR IGNORE INTO gap_sources (gap_id, paper_id, created_at) VALUES (?, ?, ?)',
+                    (gap_id, paper_id, now),
+                )
         await db.commit()
     logger.info(f"Stored {len(gap_ids)} research gaps for subject '{subject}'.")
     return gap_ids
 
 
+async def merge_into_gap(gap_id: str, description: str, source_papers: Iterable[str] = ()) -> None:
+    """Folds a rediscovered gap into the one already stored rather than adding a duplicate.
+
+    The title is left alone: it is the gap_id's input, so changing it would orphan every
+    match already recorded against the gap.
+    """
+    now = _now()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            'UPDATE gaps SET description = ?, updated_at = ? WHERE gap_id = ?', (description, now, gap_id)
+        )
+        for paper_id in source_papers:
+            await db.execute(
+                'INSERT OR IGNORE INTO gap_sources (gap_id, paper_id, created_at) VALUES (?, ?, ?)',
+                (gap_id, paper_id, now),
+            )
+        await db.commit()
+
+
+async def get_gap_sources(gap_ids: Iterable[str] | None = None) -> dict:
+    """Maps gap_id to the set of paper_ids that gap was derived from."""
+    query = 'SELECT gap_id, paper_id FROM gap_sources'
+    params: tuple = ()
+    ids = list(gap_ids) if gap_ids is not None else None
+    if ids is not None:
+        if not ids:
+            return {}
+        query += f" WHERE gap_id IN ({','.join('?' * len(ids))})"
+        params = tuple(ids)
+    sources: dict = {}
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(query, params) as cursor:
+            for gap_id, paper_id in await cursor.fetchall():
+                sources.setdefault(gap_id, set()).add(paper_id)
+    return sources
+
+
 async def get_gaps(status: str | None = "open") -> List[dict]:
-    query = 'SELECT gap_id, subject, category, title, description, status, created_at FROM gaps'
+    query = 'SELECT gap_id, subject, category, title, description, status, origin, created_at FROM gaps'
     params: tuple = ()
     if status:
         query += ' WHERE status = ?'
@@ -188,12 +268,39 @@ async def get_undigested(limit: int = 200) -> List[dict]:
 
         for paper in papers:
             async with db.execute('''
-                SELECT m.gap_id, m.relationship, m.confidence, m.evidence, g.title, g.subject, g.category
+                SELECT m.gap_id, m.relationship, m.confidence, m.evidence, g.title, g.subject, g.category, g.origin
                 FROM gap_matches m JOIN gaps g ON g.gap_id = m.gap_id
                 WHERE m.paper_id = ? ORDER BY m.confidence DESC
             ''', (paper["paper_id"],)) as cursor:
                 paper["matches"] = [dict(row) for row in await cursor.fetchall()]
     return papers
+
+
+async def get_synthesis_backlog(limit: int = 500) -> List[dict]:
+    """Relevant papers not yet consumed by a rolling synthesis, oldest first.
+
+    Oldest first so a subject that trickles in is synthesised in publication order rather
+    than being permanently pushed out of the window by newer arrivals.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute('''
+            SELECT paper_id, title, abstract, authors, published, url, source, matched_terms,
+                   relevance_reason
+            FROM papers
+            WHERE screened = 1 AND relevant = 1 AND synthesised = 0
+            ORDER BY published ASC LIMIT ?
+        ''', (limit,)) as cursor:
+            return [dict(row) for row in await cursor.fetchall()]
+
+
+async def mark_synthesised(paper_ids: Iterable[str]):
+    ids = list(paper_ids)
+    if not ids:
+        return
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany('UPDATE papers SET synthesised = 1 WHERE paper_id = ?', [(i,) for i in ids])
+        await db.commit()
 
 
 async def mark_digested(paper_ids: Iterable[str]):

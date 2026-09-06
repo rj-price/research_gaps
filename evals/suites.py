@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from modules.agents import run_critic_agent, run_synthesiser_agent
 from modules.llm import OpenRouterClient, generate_structured
 from modules.models import CriticResult
+from modules import rolling
 from modules.screening import match_paper_to_gaps, screen_relevance
 
 from evals import cases as datasets
@@ -225,9 +226,11 @@ def _structural_issues(critic: CriticResult) -> List[str]:
 async def run_gap_analysis(
     client: OpenRouterClient, model: str, limiter: AsyncLimiter,
     limit: int | None = None, judge_model_id: str | None = None,
+    suite_name: str = "gap_analysis", dataset: "datasets.GapAnalysisDataset | None" = None,
+    source_note: str = "",
 ) -> SuiteResult:
     """Runs the Synthesiser and Critic over fixed summaries and has a judge grade the gaps."""
-    dataset = datasets.load_gap_analysis()
+    dataset = dataset or datasets.load_gap_analysis()
     selected = dataset.cases[:limit] if limit else dataset.cases
     judge_id = judge_model_id or judge_module.judge_model()
 
@@ -243,11 +246,11 @@ async def run_gap_analysis(
     for case in selected:
         async with limiter:
             synthesis = await run_synthesiser_agent(
-                client, model, case.summaries, case.subject, generate_structured
+                client, model, case.summaries, case.subject, generate_structured, source_note=source_note
             )
         async with limiter:
             critic = await run_critic_agent(
-                client, model, case.summaries, synthesis, generate_structured
+                client, model, case.summaries, synthesis, generate_structured, source_note=source_note
             )
 
         issues = _structural_issues(critic)
@@ -319,9 +322,27 @@ async def run_gap_analysis(
     metrics["judge_errors"] = judge_errors
 
     return SuiteResult(
-        suite="gap_analysis", dataset=dataset.name, model=model, judge_model=judge_id,
+        suite=suite_name, dataset=dataset.name, model=model, judge_model=judge_id,
         metrics=metrics, cases=rows, started_at=started_at,
         duration_s=round(time.monotonic() - start, 1),
+    )
+
+
+async def run_gap_analysis_abstracts(
+    client: OpenRouterClient, model: str, limiter: AsyncLimiter,
+    limit: int | None = None, judge_model_id: str | None = None,
+) -> SuiteResult:
+    """The gap analysis suite run the way the rolling watcher runs it: abstracts only.
+
+    Same agents, same judge, weaker evidence. The distractor claims here are all plausible
+    author-stated limitations, so a rising fabrication_rate on this suite is the specific
+    warning that rolling synthesis has started inventing what the abstracts do not say.
+    """
+    return await run_gap_analysis(
+        client, model, limiter, limit=limit, judge_model_id=judge_model_id,
+        suite_name="gap_analysis_abstracts",
+        dataset=datasets.load_gap_analysis_abstracts(),
+        source_note=rolling.SOURCE_NOTE,
     )
 
 
@@ -329,4 +350,5 @@ SUITES = {
     "relevance": run_relevance,
     "gap_matching": run_gap_matching,
     "gap_analysis": run_gap_analysis,
+    "gap_analysis_abstracts": run_gap_analysis_abstracts,
 }

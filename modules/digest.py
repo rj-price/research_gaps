@@ -70,9 +70,12 @@ def render_digest(papers: List[dict], window_start: str, window_end: str) -> str
                 if match["relationship"] not in HEADLINE_RELATIONSHIPS:
                     continue
                 label = RELATIONSHIP_LABELS.get(match["relationship"], match["relationship"])
+                # An abstract-derived gap was never read in full, so a match against it
+                # is a lead to check rather than a settled finding. Say so on the line.
+                provenance = ", from abstracts" if match.get("origin") == "abstract" else ""
                 lines.append(
                     f"- {label} gap **{match['title']}** "
-                    f"({match['subject']}, confidence {match['confidence']:.2f})  \n"
+                    f"({match['subject']}, confidence {match['confidence']:.2f}{provenance})  \n"
                     f"  {match['evidence']}"
                 )
             lines.append("")

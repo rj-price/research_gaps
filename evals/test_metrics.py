@@ -4,7 +4,7 @@ import pytest
 from evals import cases as datasets
 from evals.metrics import BinaryScore, Mean, SetScore
 from evals.runner import check_thresholds, load_thresholds
-from evals.suites import VALID_CATEGORIES, SuiteResult, _structural_issues
+from evals.suites import SUITES, VALID_CATEGORIES, SuiteResult, _structural_issues
 from modules.models import CriticResult, IdentifiedGap
 
 
@@ -81,7 +81,9 @@ def test_structural_issues_flags_an_empty_gap_list():
 
 def test_thresholds_cover_every_suite_and_only_known_directions():
     thresholds = load_thresholds()
-    assert set(thresholds) == {"relevance", "gap_matching", "gap_analysis"}
+    # Tied to SUITES rather than a hardcoded list: a new suite with no thresholds would
+    # otherwise run in CI and pass unconditionally.
+    assert set(thresholds) == set(SUITES)
     for bounds in thresholds.values():
         for bound in bounds.values():
             assert set(bound) <= {"min", "max"} and bound

@@ -49,6 +49,15 @@ def test_a_species_routes_into_a_group_declaring_the_genus():
     assert route_to_subjects(["Puccinia striiformis"], SUBJECTS) == ["rust genomics"]
 
 
+def test_a_broad_match_does_not_route_into_a_narrower_group():
+    """A paper matched only on the bare species cannot be claimed by a forma specialis
+    group: that is what put banana, maize and soybean papers in one bucket on the first
+    real run, and produced gaps general enough to fit all three."""
+    narrow = [SubjectGroup(name="strawberry wilt", terms=["Fusarium oxysporum f. sp. fragariae"])]
+    assert route_to_subjects(["Fusarium oxysporum"], narrow) == []
+    assert route_to_subjects(["Fusarium oxysporum f. sp. fragariae"], narrow) == ["strawberry wilt"]
+
+
 def test_a_paper_can_belong_to_two_subjects():
     assert route_to_subjects(["Puccinia", "Rubus"], SUBJECTS) == ["rust genomics", "soft fruit genomics"]
 

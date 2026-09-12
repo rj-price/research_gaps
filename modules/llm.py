@@ -24,6 +24,38 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "google/gemini-2.5-flash"
 RETRYABLE_STATUS = {408, 409, 429, 500, 502, 503, 504}
 
+_langfuse = None  # False once we know tracing is off
+
+
+def _get_langfuse():
+    """Returns a Langfuse client when LANGFUSE_PUBLIC_KEY/SECRET_KEY are set, otherwise None."""
+    global _langfuse
+    if _langfuse is None:
+        _langfuse = False
+        if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
+            try:
+                from langfuse import Langfuse
+                _langfuse = Langfuse()  # host from LANGFUSE_HOST
+                logger.info("Langfuse tracing enabled")
+            except ImportError:
+                logger.warning("langfuse package not installed; tracing disabled")
+    return _langfuse or None
+
+
+def _trace_input(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Copies the messages for tracing with inline PDF bytes replaced by the filename."""
+    traced = []
+    for message in messages:
+        content = message["content"]
+        if isinstance(content, list):
+            content = [
+                {"type": "file", "file": {"filename": part["file"]["filename"]}}
+                if part.get("type") == "file" else part
+                for part in content
+            ]
+        traced.append({**message, "content": content})
+    return traced
+
 
 class TransientLLMError(Exception):
     """A failure worth retrying: rate limiting, a provider blip, or unparseable output."""
@@ -59,7 +91,39 @@ class OpenRouterClient:
         return self._client
 
     async def complete(self, payload: Dict[str, Any]) -> str:
-        """Posts one completion request and returns the message content."""
+        """Posts one completion request and returns the message content.
+
+        When Langfuse is configured, each attempt is recorded as a generation.
+        """
+        langfuse = _get_langfuse()
+        if langfuse is None:
+            content, _ = await self._complete(payload)
+            return content
+
+        with langfuse.start_as_current_observation(
+            as_type="generation",
+            name=payload.get("response_format", {}).get("json_schema", {}).get("name", "completion"),
+            model=payload["model"],
+            input=_trace_input(payload["messages"]),
+        ) as generation:
+            try:
+                content, data = await self._complete(payload)
+            except Exception as e:
+                generation.update(level="ERROR", status_message=str(e)[:500])
+                raise
+            usage = data.get("usage") or {}
+            generation.update(
+                output=content,
+                model=data.get("model") or payload["model"],
+                usage_details={
+                    "input": usage.get("prompt_tokens", 0),
+                    "output": usage.get("completion_tokens", 0),
+                },
+                cost_details={"total": usage["cost"]} if usage.get("cost") is not None else None,
+            )
+            return content
+
+    async def _complete(self, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
         client = await self._get_client()
         try:
             response = await client.post(OPENROUTER_URL, json=payload)
@@ -90,12 +154,14 @@ class OpenRouterClient:
             # and it fires intermittently on the same prompt, so this is worth retrying.
             finish = choices[0].get("native_finish_reason") or choices[0].get("finish_reason") or "unknown"
             raise TransientLLMError(f"OpenRouter returned an empty message (finish_reason: {finish}).")
-        return content
+        return content, data
 
     async def aclose(self) -> None:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+        if langfuse := _get_langfuse():
+            langfuse.flush()
 
 
 def get_client() -> OpenRouterClient:

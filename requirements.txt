@@ -9,3 +9,5 @@ httpx
 fastapi
 uvicorn
 python-multipart
+# Optional: tracing to Langfuse when LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST are set
+langfuse>=4,<5
